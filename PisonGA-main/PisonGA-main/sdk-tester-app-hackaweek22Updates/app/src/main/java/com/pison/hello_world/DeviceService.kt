@@ -250,7 +250,7 @@ class DeviceService: Service(){
                     }
                     if (wakeword) {
                         if(gesture == "DEBOUNCE_LDA_INEH"){
-                            isIndexed = true
+                            isIndexed = true // trigger user is Indexing at the moment
                         }
 
                         if(gesture == "DEBOUNCE_LDA_TEH" && isUpward && !debounce){
@@ -324,10 +324,11 @@ class DeviceService: Service(){
                         }*/ // TODO: Possible way to add shuffling (just find a way to get current Shuffle State)
                         else if(gesture != "DEBOUNCE_LDA_INEH" && isIndexed &&
                             !debounce && !swipedDown && !swipedUp){
-
+                            // User closed hand without preforming any other gesture
                             isIndexed = false
-                            println("CLICKED")
+                            //println("CLICKED")
 
+                            // Check if spotify is currently playing or paused and trigger opposite
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 //Log.d(TAG, "isPaused = " + it.isPaused)
                                 if(it.isPaused){
@@ -338,6 +339,7 @@ class DeviceService: Service(){
                                 }
                             }
 
+                            // Call oposite based off of previous information
                             Handler(Looper.getMainLooper()).postDelayed({
                                 if(!isPlaying){
                                     println("Play Song")
