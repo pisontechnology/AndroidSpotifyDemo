@@ -290,12 +290,14 @@ class DeviceService: Service(){
                             )
                         }
                         else if(gesture == "INEH_SWIPE_RIGHT"){
+                            // skip to next song
                             isIndexed = false
                             debounce = true
                             println("Play Next Song")
                             Application.spotifyAppRemote.playerApi.skipNext()
                         }
                         else if(gesture == "INEH_SWIPE_LEFT"){
+                            // skip to previous song
                             isIndexed = false
                             debounce = true
                             println("Play Prev Song")
@@ -374,6 +376,7 @@ class DeviceService: Service(){
                             })
                         }
                         else if(gesture == "DEBOUNCE_LDA_INACTIVE" && debounce){
+                            // when hand is at rest reset everything
                             debounce = false
                             isIndexed = false
                             swipedDown = false
