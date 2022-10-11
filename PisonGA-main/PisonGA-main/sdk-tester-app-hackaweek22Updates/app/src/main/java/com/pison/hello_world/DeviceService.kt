@@ -186,6 +186,7 @@ class DeviceService: Service(){
         TODO("Not yet implemented")
     }
 
+    // using IMU accelerameter data will trigger two bools to determine if ether your wrist is forwards or backwards
     private fun monitorImuState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
         val imuStateDisposable =
             pisonRemoteDevice.monitorImu().observeOn(mainScheduler).subscribe(
@@ -254,10 +255,12 @@ class DeviceService: Service(){
                         }
 
                         if(gesture == "DEBOUNCE_LDA_TEH" && isUpward && !debounce){
+                            // using imu data with thumb can figure out its a thumbs up
                             isIndexed = false
                             debounce = true
                             println("Liked Song")
 
+                            // Adding song to liked songs
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 if(it.track.name != null){
                                     Application.spotifyAppRemote.userApi.addToLibrary(it.track.uri)
@@ -272,10 +275,12 @@ class DeviceService: Service(){
                             )
                         }
                         else if(gesture == "DEBOUNCE_LDA_TEH" && isDownward && !debounce){
+                            // using imu data with thumb can figure out its a thumbs down
                             isIndexed = false
                             debounce = true
                             println("Unliked Song")
 
+                            // removing song from liked songs
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 if(it.track.name != null){
                                     Application.spotifyAppRemote.userApi.removeFromLibrary(it.track.uri)
