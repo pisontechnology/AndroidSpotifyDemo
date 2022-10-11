@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+        <variable
+            name="viewModel"
+            type="com.pison.hello_world.HapticsViewModel" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="20dp"
+        tools:context=".HapticsFragment">
+
+        <TextView
+            android:id="@+id/deviceStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/device_status_disconnected"
+            android:textSize="@dimen/text_size_med"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/hapticTypeTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_large"
+            android:text="@string/haptics_type"
+            android:textSize="@dimen/text_size_med"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/deviceStatusText" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/on_off_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toBottomOf="@+id/hapticTypeTitle"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/hapticTypeTitle"
+            app:layout_constraintTop_toTopOf="@+id/hapticTypeTitle"/>
+
+        <RadioGroup
+            android:id="@+id/hapticTypesRadioButtons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_med"
+            app:layout_constraintEnd_toEndOf="@+id/hapticTypeTitle"
+            app:layout_constraintStart_toStartOf="@+id/hapticTypeTitle"
+            app:layout_constraintTop_toBottomOf="@id/hapticTypeTitle">
+
+            <RadioButton
+                android:id="@+id/pulseRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="@{() -> viewModel.onHapticCommandTypeSelected(2)}"
+                android:text="@string/pulse_haptic" />
+
+            <RadioButton
+                android:id="@+id/burstRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="@{() -> viewModel.onHapticCommandTypeSelected(3)}"
+                android:text="@string/burst_haptic" />
+
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/hapticTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_med"
+            android:text="@string/haptic_values"
+            android:textSize="@dimen/text_size_med"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/hapticTypesRadioButtons" />
+
+        <TextView
+            android:id="@+id/durationTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/duration"
+            app:layout_constraintEnd_toStartOf="@+id/hapticTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/hapticTitle" />
+
+        <TextView
+            android:id="@+id/durationValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/_50"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/durationTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/hapticTitle" />
+
+        <TextView
+            android:id="@+id/burstIntensityTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/intensity"
+            app:layout_constraintStart_toStartOf="@+id/durationTitle"
+            app:layout_constraintTop_toBottomOf="@+id/durationSeekbar" />
+
+        <TextView
+            android:id="@+id/intensityValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/_50"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/burstIntensityTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/durationSeekbar" />
+
+
+        <TextView
+            android:id="@+id/numberTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/number_of_bursts"
+            app:layout_constraintStart_toStartOf="@+id/durationTitle"
+            app:layout_constraintTop_toBottomOf="@+id/intensitySeekbar" />
+
+        <TextView
+            android:id="@+id/numberValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/_0"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/numberTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/intensitySeekbar" />
+
+
+        <SeekBar
+            android:id="@+id/durationSeekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_med"
+            android:max="10"
+            android:min="0"
+            android:tickMark="@drawable/tickmark"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/durationTitle" />
+
+        <SeekBar
+            android:id="@+id/intensitySeekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_med"
+            android:max="10"
+            android:min="5"
+            android:tickMark="@drawable/tickmark"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/burstIntensityTitle" />
+
+        <SeekBar
+            android:id="@+id/numberSeekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_med"
+            android:max="5"
+            android:min="1"
+            android:tickMark="@drawable/tickmark"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/numberTitle" />
+
+        <Button
+            android:id="@+id/sendHapticButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_small"
+            android:text="@string/send"
+            app:layout_constraintBottom_toTopOf="@+id/errorText"
+            app:layout_constraintEnd_toEndOf="@+id/hapticTitle"
+            app:layout_constraintStart_toStartOf="@+id/hapticTitle" />
+
+
+        <TextView
+            android:id="@+id/errorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin_med"
+            android:gravity="center"
+            android:padding="@dimen/text_size_med"
+            android:textColor="#F00"
+            android:textSize="@dimen/text_size_large"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            tools:text="Error Message" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

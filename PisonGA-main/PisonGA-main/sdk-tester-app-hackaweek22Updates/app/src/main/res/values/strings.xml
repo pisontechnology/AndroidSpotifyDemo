@@ -1,0 +1,44 @@
+<resources>
+    <string name="app_name">Pison Testing App</string>
+    <string name="device_status_disconnected">Device Status Disconnected</string>
+    <string name="activation_state">Activation State</string>
+    <string name="watch_check">Watch Check</string>
+    <string name="detected_gesture">Detected Gesture</string>
+    <string name="gesture_none">"Gesture None "</string>
+    <string name="lock_state">Lock State</string>
+    <string name="lock_state_unknown">Unknown</string>
+    <string name="quaternion">Quarternion</string>
+    <string name="pitch">Pitch</string>
+    <string name="euler_empty">Euler Empty</string>
+    <string name="roll">Roll</string>
+    <string name="yaw">Yaw</string>
+    <string name="device_status_connected">Device Status Connected</string>
+    <string name="eulerTitle">Euler Angles</string>
+    <string name="device_locked">Device Locked</string>
+    <string name="device_unlocked">Device Unlocked</string>
+    <string name="battery_level_unknown">Battery Level Unknown</string>
+    <string name="battery_level">Battery Level: </string>
+    <string name="round">%.4f</string>
+    <string name="haptics">Haptics</string>
+    <string name="on">ON</string>
+    <string name="off">OFF</string>
+    <string name="duration">Duration in Milli</string>
+    <string name="burst_haptic">Burst Haptic</string>
+    <string name="haptic">Haptic</string>
+    <string name="intensity">Intensity</string>
+    <string name="number_of_bursts">Number</string>
+    <string name="haptic_pulse">Haptic Pulse</string>
+    <string name="send">Send</string>
+    <string name="_0">0</string>
+    <string name="haptics_status_text">Haptics Status Text:</string>
+    <string name="haptic_values">Haptic Values</string>
+    <string name="haptics_type">Enable Haptic Test</string>
+    <string name="on_haptic">ON Haptic</string>
+    <string name="pulse_haptic">Pulse Haptic</string>
+    <string name="off_haptic">OFF Haptic</string>
+    <string name="ramp_haptic">Ramp Haptic</string>
+    <string name="gesture_cleared">Gesture Cleared</string>
+    <string name="_50">50</string>
+    <string name="empty_string"> </string>
+
+</resources>

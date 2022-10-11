@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/landingFragment">
+
+    <activity
+        android:id="@+id/mainActivity"
+        android:name="com.pison.hello_world.MainActivity"
+        android:label="activity_main"
+        tools:layout="@layout/activity_main" />
+    <fragment
+        android:id="@+id/landingFragment"
+        android:name="com.pison.hello_world.LandingFragment"
+        android:label="LandingFragment" >
+        <action
+            android:id="@+id/action_landingFragment_to_hapticsFragment"
+            app:destination="@id/hapticsFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/hapticsFragment"
+        android:name="com.pison.hello_world.HapticsFragment"
+        android:label="haptics_fragment"
+        tools:layout="@layout/haptics_fragment" />
+</navigation>
