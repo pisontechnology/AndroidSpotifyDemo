@@ -160,6 +160,8 @@ class DeviceService: Service(){
 
         moniter()
 
+        // checks every 1.2sec to see if the user is holding a swipe up or swipe down gesture
+        // if so will gradually change volume based off of that information
         mHandler.post(object: Runnable{
             override fun run() {
                 //println("am I called?")
@@ -307,17 +309,16 @@ class DeviceService: Service(){
                             Application.spotifyAppRemote.playerApi.skipPrevious()
                         }
                         else if(gesture == "INEH_SWIPE_UP"){
-                            //isIndexed = false
+                            // Swipe up will increase volume set amount
                             debounce = true
-                            swipedUp = true
+                            swipedUp = true // trigger hold functionality
                             println("Increase Volume")
                             audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND)
-                            //audioManager.adjustVolume(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) + 5, AudioManager.FLAG_SHOW_UI)
                         }
                         else if(gesture == "INEH_SWIPE_DOWN"){
-                            //isIndexed = false
+                            // Swipe down will decrease volume set amount
                             debounce = true
-                            swipedDown = true
+                            swipedDown = true // trigger hold functionality
                             println("Decrease Volume")
                             audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
                         }
