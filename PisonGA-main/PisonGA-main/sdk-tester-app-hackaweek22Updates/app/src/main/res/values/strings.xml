@@ -40,5 +40,6 @@
     <string name="gesture_cleared">Gesture Cleared</string>
     <string name="_50">50</string>
     <string name="empty_string"> </string>
+    <string name="title_activity_main_compose">MainComposeActivity</string>
 
 </resources>
