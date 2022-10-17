@@ -10,7 +10,6 @@ class Application : Application() {
     companion object {
         lateinit var sdk: PisonRemoteServer
         lateinit var spotifyAppRemote: SpotifyAppRemote
-        var wakeword: Boolean = false
     }
 
     override fun onCreate() {

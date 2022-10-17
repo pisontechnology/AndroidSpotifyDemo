@@ -56,19 +56,149 @@
                 app:layout_constraintRight_toRightOf="parent"
                 app:layout_constraintBottom_toTopOf="@+id/lockState"
                 app:layout_constraintTop_toTopOf="@+id/detectedGestureText"/>-->
+        <TextView
+                android:id="@+id/detectedGestureVerdictText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/default_margin_small"
+                android:text="@string/gesture_none"
+                android:textSize="@dimen/text_size_large"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintBottom_toTopOf="@+id/lockState"
+                app:layout_constraintTop_toBottomOf="@+id/detectedGestureText"/>
 
         <TextView
-            android:id="@+id/detectedGestureVerdictText"
+            android:id="@+id/lockState"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
+            android:layout_marginEnd="@dimen/default_margin_small"
             android:padding="@dimen/default_margin_small"
-            android:text="@string/gesture_none"
+            android:text="@string/lock_state"
             android:textSize="@dimen/text_size_large"
+            app:layout_constraintBottom_toTopOf="@id/eulerTitle"
+            app:layout_constraintHorizontal_chainStyle="packed"
             app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/batteryValueText" />
+            app:layout_constraintRight_toLeftOf="@id/lockStateText"
+            app:layout_constraintStart_toStartOf="@id/detectedGestureText"
+            app:layout_constraintTop_toBottomOf="@id/detectedGestureText" />
 
+        <TextView
+            android:id="@+id/lockStateText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="@dimen/default_margin_small"
+            android:text="@string/lock_state_unknown"
+            android:textSize="@dimen/text_size_large"
+            app:layout_constraintBottom_toBottomOf="@id/lockState"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintLeft_toRightOf="@id/lockState"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintStart_toEndOf="@id/lockState"
+            app:layout_constraintTop_toTopOf="@id/lockState" />
+
+        <TextView
+                android:id="@+id/eulerTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="@dimen/default_margin_small"
+                android:text="@string/eulerTitle"
+                android:textSize="@dimen/text_size_large"
+                app:layout_constraintTop_toBottomOf="@+id/lockState"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintRight_toRightOf="parent"
+                tools:layout_editor_absoluteY="342dp"/>
+        <TextView
+                android:id="@+id/pitchText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/pitch"
+                android:textSize="@dimen/text_size_med"
+                app:layout_constraintBottom_toTopOf="@id/rollText"
+                app:layout_constraintHorizontal_chainStyle="packed"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintRight_toLeftOf="@id/pitchValueText"
+                app:layout_constraintTop_toBottomOf="@id/eulerTitle"/>
+
+        <TextView
+            android:id="@+id/pitchValueText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="start"
+            android:text="@string/euler_empty"
+            android:textSize="@dimen/text_size_med"
+            app:layout_constraintBottom_toBottomOf="@id/pitchText"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintLeft_toRightOf="@id/pitchText"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintStart_toStartOf="@id/rollValueText"
+            app:layout_constraintTop_toTopOf="@id/pitchText" />
+
+        <TextView
+            android:id="@+id/rollText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/default_margin_small"
+            android:text="@string/roll"
+            android:textSize="@dimen/text_size_med"
+
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toLeftOf="@id/rollValueText"
+            app:layout_constraintStart_toStartOf="@id/pitchText"
+            app:layout_constraintTop_toBottomOf="@id/pitchText" />
+
+        <TextView
+            android:id="@+id/rollValueText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="start"
+            android:text="@string/euler_empty"
+            android:textSize="@dimen/text_size_med"
+            app:layout_constraintBottom_toBottomOf="@id/rollText"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintLeft_toRightOf="@id/rollText"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toTopOf="@id/rollText" />
+
+        <TextView
+            android:id="@+id/yawText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/default_margin_small"
+            android:text="@string/yaw"
+            android:textSize="@dimen/text_size_med"
+
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toLeftOf="@id/yawValueText"
+            app:layout_constraintStart_toStartOf="@id/pitchText"
+            app:layout_constraintTop_toBottomOf="@id/rollText" />
+
+        <TextView
+            android:id="@+id/yawValueText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="start"
+            android:text="@string/euler_empty"
+            android:textSize="@dimen/text_size_med"
+            app:layout_constraintBottom_toBottomOf="@id/yawText"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintLeft_toRightOf="@id/yawText"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toTopOf="@id/yawText" />
+
+        <Button
+            android:id="@+id/hapticsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            android:text="@string/haptics"
+            app:layout_constraintTop_toBottomOf="@id/yawText"
+            app:layout_constraintBottom_toTopOf="@id/errorText"
+            android:layout_margin="@dimen/default_margin_small"
+            />
         <TextView
             android:id="@+id/errorText"
             android:layout_width="wrap_content"
@@ -78,43 +208,10 @@
             android:textColor="#F00"
             android:textSize="@dimen/text_size_large"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintHorizontal_bias="0.497"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/yawValueText"
             tools:text="Error Message" />
-
-        <TextView
-            android:id="@+id/spotifyState"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Spotify: Loading...."
-            android:textSize="24sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.497"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/detectedGestureVerdictText" />
-
-        <TextView
-            android:id="@+id/wakeWordText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Wakeword Text"
-            android:textSize="24sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/spotifyState" />
-
-        <ImageView
-            android:id="@+id/imageView"
-            android:layout_width="93dp"
-            android:layout_height="88dp"
-            app:layout_constraintBottom_toTopOf="@+id/errorText"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/wakeWordText"
-            app:srcCompat="@android:drawable/btn_star_big_on" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

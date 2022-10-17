@@ -38,15 +38,15 @@ class LandingFragment : Fragment() {
         )
         viewModel = ViewModelProvider(this).get(LandingViewModel::class.java)
 
-        //binding.hapticsButton.isEnabled = false
+        binding.hapticsButton.isEnabled = false
 
-        //binding.hapticsButton.setOnClickListener {
-        //    navigateToHapticsFragment()
-        //}
+        binding.hapticsButton.setOnClickListener {
+            navigateToHapticsFragment()
+        }
 
-        //viewModel.enableHapticsButton.observe(viewLifecycleOwner, { enableButton ->
-        //    binding.hapticsButton.isEnabled = enableButton
-        //})
+        viewModel.enableHapticsButton.observe(viewLifecycleOwner, { enableButton ->
+            binding.hapticsButton.isEnabled = enableButton
+        })
 
         viewModel.deviceConnected.observe(viewLifecycleOwner, { isDeviceConnected ->
             val connectedTextResId = if (isDeviceConnected) {
@@ -90,12 +90,12 @@ class LandingFragment : Fragment() {
 
         }
         
-        /*viewModel.eulerReceived.observe(viewLifecycleOwner, { euler ->
+        viewModel.eulerReceived.observe(viewLifecycleOwner, { euler ->
             test =  getString(R.string.round).format(euler.pitch)
             binding.pitchValueText.text = getString(R.string.round).format(euler.pitch)
             binding.yawValueText.text = getString(R.string.round).format(euler.yaw)
             binding.rollValueText.text = getString(R.string.round).format(euler.roll)
-        })*/
+        })
 
         viewModel.errorReceived.observe(viewLifecycleOwner, { error ->
             binding.errorText.text = error.message
@@ -122,9 +122,9 @@ class LandingFragment : Fragment() {
 
     private fun clearViews() {
         binding.detectedGestureVerdictText.text = getString(R.string.gesture_none)
-        //binding.pitchValueText.text = getString(R.string.euler_empty)
-        //binding.rollValueText.text = getString(R.string.euler_empty)
-        //binding.yawValueText.text = getString(R.string.euler_empty)
+        binding.pitchValueText.text = getString(R.string.euler_empty)
+        binding.rollValueText.text = getString(R.string.euler_empty)
+        binding.yawValueText.text = getString(R.string.euler_empty)
         //binding.activationStateCheckBox.isChecked = false
     }
 
