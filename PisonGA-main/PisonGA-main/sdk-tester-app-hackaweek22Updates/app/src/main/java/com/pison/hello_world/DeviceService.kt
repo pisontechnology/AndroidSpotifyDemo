@@ -10,6 +10,9 @@ import android.os.IBinder
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.badoo.reaktive.disposable.CompositeDisposable
@@ -58,6 +61,8 @@ class DeviceService: Service(){
 
     private var masterDisposable = CompositeDisposable()
 
+    //private var mainActivity = MainActivity()
+
     lateinit var audioManager: AudioManager
 
     lateinit var runnable: Runnable
@@ -76,7 +81,7 @@ class DeviceService: Service(){
     val errorReceived: LiveData<Throwable>
         get() = _errorReceived
 
-    private var wakeword = false
+    //var wakeword = false
     private var isPlaying = false
     private var isUpward = false
     private var isDownward = false
@@ -164,13 +169,12 @@ class DeviceService: Service(){
         // if so will gradually change volume based off of that information
         mHandler.post(object: Runnable{
             override fun run() {
-                //println("am I called?")
-                println(swipedUp)
                 if(swipedUp){
                     println("Steady increase volume")
                     audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
                 }
                 else if(swipedDown){
+                    println("Steady decrease volume")
                     audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
                 }
                 mHandler.postDelayed(this,1200)
@@ -229,8 +233,9 @@ class DeviceService: Service(){
                     Log.d(TAG, "$GESTURES_TAG $gesture")
                     //print(gesture)
                     if (gesture == "SHAKE_N_INEH"){
-                        wakeword = !wakeword
-                        if(wakeword){
+                        //wakeword = !wakeword
+                        Application.wakeword = !Application.wakeword
+                        if(Application.wakeword){
                             println("WOKE UP")
                             debounce = true
                             sendHaptic(
@@ -243,6 +248,9 @@ class DeviceService: Service(){
                             println("NAP TIME")
                             debounce = false
                             isIndexed = false
+                            swipedDown = false
+                            swipedUp = false
+                            //Application.plsWork = false
                             sendHaptic(
                                 HAPTIC_BURST,
                                 DURATION_MS_DEFAULT,
@@ -251,7 +259,7 @@ class DeviceService: Service(){
                             )
                         }
                     }
-                    if (wakeword) {
+                    if (Application.wakeword) {
                         if(gesture == "DEBOUNCE_LDA_INEH"){
                             isIndexed = true // trigger user is Indexing at the moment
                         }

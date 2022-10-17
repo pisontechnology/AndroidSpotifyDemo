@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">Pison Testing App</string>
-    <string name="device_status_disconnected">Device Status Disconnected</string>
+    <string name="device_status_disconnected">Device Status: Disconnected</string>
     <string name="activation_state">Activation State</string>
     <string name="watch_check">Watch Check</string>
-    <string name="detected_gesture">Detected Gesture</string>
+    <string name="detected_gesture">Detected Gesture:</string>
     <string name="gesture_none">"Gesture None "</string>
     <string name="lock_state">Lock State</string>
     <string name="lock_state_unknown">Unknown</string>
@@ -12,7 +12,7 @@
     <string name="euler_empty">Euler Empty</string>
     <string name="roll">Roll</string>
     <string name="yaw">Yaw</string>
-    <string name="device_status_connected">Device Status Connected</string>
+    <string name="device_status_connected">Device Status: Connected</string>
     <string name="eulerTitle">Euler Angles</string>
     <string name="device_locked">Device Locked</string>
     <string name="device_unlocked">Device Unlocked</string>
