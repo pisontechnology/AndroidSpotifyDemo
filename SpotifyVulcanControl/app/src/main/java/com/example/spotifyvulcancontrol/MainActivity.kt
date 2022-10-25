@@ -9,6 +9,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,11 +26,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.modifier.modifierLocalConsumer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.spotifyvulcancontrol.ui.theme.SpotifyVulcanControlTheme
 
 class MainActivity : ComponentActivity() {
@@ -56,13 +65,16 @@ private fun MyApp() {
 
 @Composable
 private fun OnboardingScreen(onContinueClicked: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
+
+    val expanded = remember { mutableStateOf(false) }
+
+    val extraPadding = if (expanded.value) 300.dp else 30.dp
 
     Surface {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp, vertical = 80.dp),
+                .padding(30.dp, vertical = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
@@ -78,8 +90,8 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ){
+            Text("", modifier = Modifier.padding(14.dp))
             Text("Wake Word Here?", style = MaterialTheme.typography.subtitle1)
-            Text("", modifier = Modifier.padding(vertical = 18.dp))
         }
 
         // Song section Includes
@@ -87,22 +99,27 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 30.dp),
             verticalAlignment = Alignment.CenterVertically
         ){
             Column(
                 horizontalAlignment = Alignment.Start
             ) {
-                Text("", modifier = Modifier.padding(vertical = 20.dp))
+                Text("", modifier = Modifier.padding(vertical = 60.dp))
                 Text("Song Name", style = MaterialTheme.typography.h6,
-                                       modifier = Modifier.padding(vertical = 10.dp))
-                Text("Artist Name", style = MaterialTheme.typography.caption)
+                                       modifier = Modifier.padding(vertical = 10.dp),
+                                       fontSize = 23.sp
+                )
+                Text("Artist Name", style = MaterialTheme.typography.caption, fontSize = 15.sp)
             }
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End) {
-                Text("", modifier = Modifier.padding(vertical = 25.dp))
-                Text("Heart")
+                Text("", modifier = Modifier.padding(vertical = 66.dp))
+                Image(painter = painterResource(id = R.drawable.heart_empty),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp)
+                )
             }
             Row(
                 horizontalArrangement = Arrangement.Start
@@ -114,13 +131,12 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 30.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Center
         ){
-            Column() {
-                Text("", modifier = Modifier.padding(vertical = 95.dp))
-                Text("Slider Location here******************")
-            }
+            Text("***********Slider Location here*************",
+                modifier = Modifier.padding(vertical = 220.dp))
         }
 
         Row(
@@ -128,49 +144,80 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.Center
         ){
-            Text("Prev Button", modifier = Modifier.padding(vertical = 180.dp, horizontal = 6.dp))
-            Text("Play Button", modifier = Modifier.padding(vertical = 180.dp, horizontal = 6.dp))
-            Text("Next Button", modifier = Modifier.padding(vertical = 180.dp, horizontal = 6.dp))
+            Image(painter = painterResource(id = R.drawable.ic_skip_previous),
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(vertical = 110.dp, horizontal = 15.dp)
+                    .size(60.dp)
+            )
+            Image(painter = painterResource(id = R.drawable.play_button),
+                  contentDescription = null,
+                  modifier = Modifier
+                      .padding(vertical = 110.dp, horizontal = 15.dp)
+                      .size(60.dp)
+            )
+            Image(painter = painterResource(id = R.drawable.ic_skip),
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(vertical = 110.dp, horizontal = 15.dp)
+                    .size(60.dp)
+            )
         }
+
+
+        // EMI Inferences stuff here *****
 
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Bottom
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Card(
                 backgroundColor = MaterialTheme.colors.primary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(70.dp)
-                    .padding(horizontal = 17.dp),
+                modifier = Modifier.padding(horizontal = 8.dp)
             ) {
-                Text("Inferences and EMI",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateContentSize(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(
-                        onClick = { expanded = !expanded },
+                Row() {
+                    Column(
+                        verticalArrangement = Arrangement.Top,
+                        horizontalAlignment = Alignment.Start
                     ) {
-                        Icon(
-                            imageVector = if (expanded) Filled.ExpandMore else Filled.ExpandLess,
-                            contentDescription = if (expanded) {
-                                stringResource(R.string.show_more)
-                            } else {
-                                stringResource(R.string.show_less)
-                            }
+                        Text(
+                            "Inferences and EMI",
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            fontWeight = FontWeight.Bold
                         )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(extraPadding), //bottom = extraPadding)
+                    ) {
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.Top,
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        IconButton(
+                            onClick = { expanded.value = !expanded.value }
+                        ) {
+                            Icon(
+                                imageVector = if (expanded.value) Filled.ExpandMore else Filled.ExpandLess,
+                                contentDescription = if (expanded.value) {
+                                    stringResource(R.string.show_more)
+                                } else {
+                                    stringResource(R.string.show_less)
+                                }
+                            )
+                        }
+                    }
+                }
+                if(expanded.value){
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        RealTimePortrait()
                     }
                 }
             }
@@ -179,21 +226,206 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
 }
 
 @Composable
-private fun SongTextSection(){
-    // song section of UI here for clearity of ready
-}
-
-@Composable
-private fun IMUandEMUScreen(){
-
-}
-
-@Composable
 private fun Greetings(names: List<String> = List(1000) { "$it" } ) {
-    LazyColumn(modifier = Modifier.padding(vertical = 4.dp)) {
+
+    /*LazyColumn(modifier = Modifier.padding(vertical = 4.dp)) {
         items(items = names) { name ->
             Greeting(name = name)
         }
+    }*/
+}
+
+@Composable
+private fun RealTimePortrait(
+    /*eulerStream: Observable<EulerAngles>,
+    waveProcessor: WaveProcessor,
+    ldaOutput: Observable<LdaVerdict>,
+    eventOutput: Observable<HighlightedInference>,
+    swipeOutput: Observable<HighlightedInference>,
+    sqiOutput: Observable<SqiErrorVerdict>,
+    rssiOutput: Observable<RssiDisplay>*/
+) {
+    Column(
+        //modifier = Modifier
+        //    .fillMaxSize()
+    ) {
+        Box(modifier = Modifier
+            .weight(1f)
+            .padding(bottom = 10.dp)) {
+            SignalDisplay()//waveProcessor = waveProcessor, ldaOutput, eventOutput, swipeOutput, rssiOutput)
+        }
+        Box(modifier = Modifier
+            .weight(0.8f)
+            .padding(bottom = 20.dp)) {
+            EulersDisplay()//eulerStream = eulerStream, sqiOutput = sqiOutput)
+        }
+    }
+}
+
+@Composable
+private fun EulersDisplay(
+    //eulerStream: Observable<EulerAngles>,
+    //sqiOutput: Observable<SqiErrorVerdict>
+){
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        @Composable
+        fun Dial(rotation: Float, label: String) {
+            Column(
+                Modifier
+                    .width(100.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 40.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_dial_arrow),
+                    contentDescription = "inner compass",
+                    modifier = Modifier
+                        .rotate(rotation)
+                        .aspectRatio(1f)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = label,
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+        }
+
+        //val eulers by eulerStream.subscribeAsState(initial = defaultEulers)
+        //val sqi by sqiOutput.subscribeAsState(initial = SqiErrorVerdict(listOf("[No Verdict]")))
+        Row(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            /*Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()) {
+                Text(
+                    text = "EEMI",
+                    color = Color.DarkGray,//if (sqi.values.contains("High EMI")) MaterialTheme.colors.primary else Color.DarkGray,
+                    fontSize = 24.sp,
+                    modifier = Modifier
+                        .padding(top = 30.dp, start = 30.dp)
+                )
+                Text(
+                    text = "ENAC",
+                    color = Color.DarkGray,//if (sqi.values.contains("Not a class")) MaterialTheme.colors.primary else Color.DarkGray,
+                    fontSize = 24.sp,
+                    modifier = Modifier
+                        .padding(top = 30.dp, start = 30.dp)
+                )
+                Text(
+                    text = "ENOISE",
+                    color = Color.DarkGray,//if (sqi.values.contains("High noise")) MaterialTheme.colors.primary else Color.DarkGray,
+                    fontSize = 24.sp,
+                    modifier = Modifier
+                        .padding(top = 30.dp, start = 30.dp)
+                )
+                Text(
+                    text = "EBLE",
+                    color = Color.DarkGray,//if (sqi.values.contains("BLE packet drop rate")) MaterialTheme.colors.primary else Color.DarkGray,
+                    fontSize = 24.sp,
+                    modifier = Modifier
+                        .padding(top = 30.dp, start = 30.dp)
+                )
+                Text(
+                    text = "ELOSNR",
+                    color = Color.DarkGray,//if (sqi.values.contains("Low SNR")) MaterialTheme.colors.primary else Color.DarkGray,
+                    fontSize = 24.sp,
+                    modifier = Modifier
+                        .padding(top = 30.dp, start = 30.dp)
+                )
+            }*/
+            Column(
+                Modifier
+                    .padding(start = 50.dp)
+                    .weight(1f)
+                    .fillMaxWidth()){
+                Row() {
+                    Dial(rotation = 0 + 90f, label = "Yaw")//eulers.yaw + 90f, label = "Yaw")
+                    Dial(rotation = 0 - 180f, label = "Pitch")//eulers.pitch - 180f, label = "Pitch")
+                }
+                Dial(rotation = -(0 - 90f), label = "Roll")//-(eulers.roll - 90f), label = "Roll")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SignalDisplay(
+    /*waveProcessor: WaveProcessor,
+    ldaOutput: Observable<LdaVerdict>,
+    eventOutput: Observable<HighlightedInference>,
+    swipeOutput: Observable<HighlightedInference>,
+    rssiOutput: Observable<RssiDisplay>*/
+) {
+    Column {
+        VerdictHeader()//ldaOutput = ldaOutput, eventOutput = eventOutput, swipeOutput = swipeOutput, rssiOutput = rssiOutput)
+        BoxWithConstraints {
+            //println("reconstraint")
+            // Is an import for com.pison.neohub.view.WaveView
+            /*WaveView(
+                waveProcessor = waveProcessor,
+                width = maxWidth,
+                height = maxHeight
+            )*/
+        }
+
+    }
+}
+
+@Composable
+private fun VerdictHeader(
+    /*ldaOutput: Observable<LdaVerdict>,
+    eventOutput: Observable<HighlightedInference>,
+    swipeOutput: Observable<HighlightedInference>,
+    rssiOutput: Observable<RssiDisplay>*/
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .height(150.dp)) {
+        //val ldaVerdict by ldaOutput.subscribeAsState(initial = LdaVerdict("[No Verdict]", 0.0f))
+        //val event by eventOutput.subscribeAsState(initial = HighlightedInference("[No Event]", false))
+        //val swipe by swipeOutput.subscribeAsState(initial = HighlightedInference("[No Swipe]", false))
+        //val rssi by rssiOutput.subscribeAsState(initial = RssiDisplay("", false))
+        Text(
+            text = "[No Verdict]", //ldaVerdict.name,
+            color = Color.White,
+            fontSize = 24.sp,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 40.dp)
+        )
+        Text(
+            text = "[No Event]", //event.inference,
+            color = Color.White, //if (event.highlight) MaterialTheme.colors.primary else Color.DarkGray,
+            fontSize = 24.sp,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 6.dp)
+        )
+        Text(
+            text = "[No Swipe]", //swipe.inference,
+            color = Color.White,//if (swipe.highlight) MaterialTheme.colors.primary else Color.DarkGray,
+            fontSize = 24.sp,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 6.dp)
+        )
+        /*Text(
+            text = "?",//rssi.rssi,
+            color = Color.Red,//if (rssi.highlight) Color.Red else Color.White,
+            fontSize = 12.sp,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 6.dp)
+        )*/
     }
 }
 
@@ -254,22 +486,48 @@ private fun CardContent(name: String) {
     }
 }
 
-/*
-@Preview(
+
+/*@Preview(
     showBackground = true,
     widthDp = 320,
     uiMode = UI_MODE_NIGHT_YES,
     name = "DefaultPreviewDark"
-)
+)*/
 @Preview(showBackground = true, widthDp = 320)
 @Composable
 fun DefaultPreview() {
     SpotifyVulcanControlTheme {
-        Greetings()
+        RealTimePortrait()//eulerStream, waveProcessor, ldaOutput, eventOutput, swipeOutput, sqiOutput, rssiOutput)
     }
-}*/
+}
 
-@Preview(showBackground = true, widthDp = 320)
+/* For later
+class RealTimeVizViewModelAdapter(delegate: RealTimeVizViewModel) :
+    AndroidViewModelAdapter<RealTimeVizViewModel>(delegate)
+
+class RealTimeVizActivity : BaseActivity<RealTimeVizViewModel, RealTimeVizViewModelAdapter>() {
+    override val viewModelAdapterClass: Class<out RealTimeVizViewModelAdapter> =
+        RealTimeVizViewModelAdapter::class.java
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            RealTimeVizView(
+                viewModel.eulerAngles,
+                viewModel.waveProcessor,
+                viewModel.ldaOutput,
+                viewModel.eventOutput,
+                viewModel.swipeOutput,
+                viewModel.sqiOutput,
+                viewModel.signalRssiOutput
+            )
+        }
+    }
+}
+ */
+
+@Preview
+@Preview(device = Devices.AUTOMOTIVE_1024p, widthDp = 740, heightDp = 360)
 @Composable
 fun OnboardingPreview() {
     SpotifyVulcanControlTheme {
