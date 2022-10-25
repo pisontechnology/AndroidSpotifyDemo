@@ -10,6 +10,16 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        mavenLocal()
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/pisontechnology/thanos")
+            credentials {
+                // store credentials in gradle properties
+                username = "JoeTecce"
+                password = "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"
+            }
+        }
     }
 }
 rootProject.name = "SpotifyVulcanControl"
