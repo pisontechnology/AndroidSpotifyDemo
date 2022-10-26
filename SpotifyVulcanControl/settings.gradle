@@ -1,3 +1,5 @@
+import org.gradle.api.initialization.resolve.RepositoriesMode
+
 pluginManagement {
     repositories {
         gradlePluginPortal()
@@ -6,14 +8,14 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
-        mavenLocal()
+        mavenLocal() // added local for some reason
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/pisontechnology/thanos")
+            url = "https://maven.pkg.github.com/pisontechnology/thanos" // dont need url stuff here
             credentials {
                 // store credentials in gradle properties
                 username = "JoeTecce"
@@ -22,5 +24,7 @@ dependencyResolutionManagement {
         }
     }
 }
-rootProject.name = "SpotifyVulcanControl"
+
+// i did flip these but i highly doubte that did anything
 include ':app'
+rootProject.name = "SpotifyVulcanControl"

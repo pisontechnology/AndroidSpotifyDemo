@@ -4,14 +4,16 @@ plugins {
 }
 
 android {
-    compileSdk 32
+    compileSdk 31
+    buildToolsVersion "30.0.3"
 
+    // don't know about version should test
     defaultConfig {
         applicationId "com.example.spotifyvulcancontrol"
-        minSdk 21
-        targetSdk 32
+        minSdk 26
+        targetSdk 31
         versionCode 1
-        versionName "1.0"
+        versionName "1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -24,6 +26,12 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        debug { // make sure this is there
+            matchingFallbacks = ['debug', 'release']
+        }
+    }
+    dataBinding {
+        enabled = true
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -47,7 +55,7 @@ android {
 
 dependencies {
 
-    implementation fileTree(dir: 'libs', include: ['*.aar'], exclude: [])
+    implementation fileTree(dir: 'libs', include: ['*.aar'], exclude: []) // dont know if needed but helps i think
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation "androidx.compose.ui:ui:$compose_version"
     implementation "androidx.compose.material:material:$compose_version"
@@ -56,7 +64,8 @@ dependencies {
     implementation 'androidx.activity:activity-compose:1.3.1'
     implementation "androidx.compose.material:material-icons-extended:$compose_version"
     implementation "io.coil-kt:coil-compose:2.0.0-rc01"
-    implementation "com.pison.core:client-android:1.1.0-99af0c5fde"
+    implementation "com.pison.core:client-android:0.40.0-a43deab66e" // this version neccsarry
+    implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
