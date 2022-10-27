@@ -19,7 +19,7 @@ dependencyResolutionManagement {
             credentials {
                 // store credentials in gradle properties
                 username = "JoeTecce"
-                password = "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"
+                password = "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"
             }
         }
     }
