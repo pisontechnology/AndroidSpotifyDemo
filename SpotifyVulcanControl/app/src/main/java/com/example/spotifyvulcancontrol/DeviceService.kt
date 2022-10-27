@@ -165,7 +165,7 @@ class DeviceService: Service(){
         mHandler.post(object: Runnable{
             override fun run() {
                 //println("am I called?")
-                println(swipedUp)
+                //println(swipedUp)
                 if(swipedUp){
                     println("Steady increase volume")
                     audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
@@ -183,9 +183,8 @@ class DeviceService: Service(){
         disposeDisposables()
     }
 
-
     override fun onBind(p0: Intent?): IBinder? {
-        TODO("Not yet implemented")
+        return null
     }
 
     // using IMU accelerameter data will trigger two bools to determine if ether your wrist is forwards or backwards

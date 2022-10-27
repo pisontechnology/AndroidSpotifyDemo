@@ -56,27 +56,33 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
-import androidx.core.app.ServiceCompat.stopForeground
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import com.spotify.protocol.types.ImageUri
+import com.spotify.protocol.types.Track
 
 private const val PISON_PACKAGE = "com.example.spotifyvulcancontrol"
 private const val PISON_CLASS = "$PISON_PACKAGE.DeviceService"
+
+private var spotifyConnected = false
 
 class MainActivity : ComponentActivity() {
 
     private val clientId = "fc1ec90c567f4687b700ec8f0f237871"
     private val redirectUri = "https://com.example.spotifyvulcancontrol/callback"
 
-    private var spotifyConnected = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            SpotifyVulcanControlTheme {
-                MyApp()
+
+        Handler(Looper.getMainLooper()).post(object: Runnable{
+            override fun run() {
+                setContent {
+                    println("did i get this far????")
+                    SpotifyVulcanControlTheme {
+                        MyApp()
+                    }
+                }
+                Handler(Looper.getMainLooper()).postDelayed(this,500)
             }
-        }
+        })
     }
 
     override fun onStart() {
@@ -109,6 +115,13 @@ class MainActivity : ComponentActivity() {
 
     private fun connected(){
         // just called when we have a success ful connection will be useful for UI stuff
+        spotifyConnected = true
+
+        setContent {
+            SpotifyVulcanControlTheme {
+                OnboardingScreen(onContinueClicked = {})
+            }
+        }
     }
 
     override fun onStop() {
@@ -160,6 +173,32 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
 
     val extraPadding = if (expanded.value) 300.dp else 30.dp
 
+    var songName = ""
+    var artistName = ""
+    var songCoverUri: ImageUri // TODO: Uri not working with current image compose
+    var likeSong = false
+    var songLength: Long // TODO: The fuck is Long? (Note: some shit in kotlin)
+    var currentLength = 0 // TODO: For some reason this is soooo much more work then it should be
+
+    println("shiiiiiittttttttttt")
+
+    /*if(spotifyConnected){
+        spotifyAppRemote.playerApi.playerState.setResultCallback {
+            songName = it.track.name
+            artistName = it.track.artist.name
+            songCoverUri = it.track.imageUri
+            songLength = it.track.duration
+        }
+    }
+    else{
+        songName = "Pending..."
+        artistName = "Pending..."
+    }
+
+    if(songName == ""){
+        println("shiiiiiittttttttttt")
+    }*/
+
     Surface {
         Column(
             modifier = Modifier
@@ -196,11 +235,11 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
                 horizontalAlignment = Alignment.Start
             ) {
                 Text("", modifier = Modifier.padding(vertical = 60.dp))
-                Text("Song Name", style = MaterialTheme.typography.h6,
+                Text(songName, style = MaterialTheme.typography.h6,
                                        modifier = Modifier.padding(vertical = 10.dp),
                                        fontSize = 23.sp
                 )
-                Text("Artist Name", style = MaterialTheme.typography.caption, fontSize = 15.sp)
+                Text(artistName, style = MaterialTheme.typography.caption, fontSize = 15.sp)
             }
             Column(
                 modifier = Modifier.fillMaxWidth(),
