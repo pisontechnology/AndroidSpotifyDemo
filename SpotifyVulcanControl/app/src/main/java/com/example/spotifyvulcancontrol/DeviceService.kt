@@ -1,5 +1,6 @@
 package com.example.spotifyvulcancontrol
 
+import android.animation.Animator
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -15,30 +17,39 @@ import com.badoo.reaktive.observable.flatMapIterable
 import com.badoo.reaktive.observable.observeOn
 import com.badoo.reaktive.observable.subscribe
 import com.badoo.reaktive.scheduler.mainScheduler
-import com.pison.core.client.PisonRemoteDevice
 import com.pison.core.client.PisonRemoteClassifiedDevice
+import com.pison.core.client.PisonRemoteDevice
 import com.pison.core.client.monitorConnectedDevices
 import com.pison.core.shared.haptic.*
 import com.pison.core.shared.imu.EulerAngles
+import com.spotify.android.appremote.api.SpotifyAppRemote
+import com.spotify.protocol.types.PlayerState
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import com.spotify.protocol.types.Track;
 import kotlinx.coroutines.Runnable
+import java.util.*
+import java.util.concurrent.Executor
 
 const val SERVER_INITIALIZE_COMMAND = 1
-private const val TAG = "Device Service"
+private const val TAG = "DEVICE SERVICES"
 private const val EULER_TAG = "EULER"
 private const val GESTURES_TAG = "GESTURES"
 
 private const val HAPTICCT = 5
 private const val HAPTIC_PULSE = 2
 private const val HAPTIC_BURST = 3
+private const val HAPTIC_OFF = 0
 
 private const val DURATION_MS_DEFAULT = 245
 private const val INTENSITY_UnlockLock = 100
 private const val INTENSITY_BASIC = 70
 private const val NUMBER_DEFAULT_UnlockLock = 2
 private const val NUMBER_DEFAULT_BASIC = 1
+
+private const val INCREASE_DELAY = 100
+
+
 
 @Suppress("DEPRECATION")
 @ExperimentalStdlibApi
@@ -52,6 +63,10 @@ class DeviceService: Service(){
     lateinit var runnable: Runnable
 
     val mHandler = Handler(Looper.getMainLooper())
+
+//    private val _gestureReceived = MutableLiveData<String>()
+//    val gestureReceived: LiveData<String>
+//        get() = _gestureReceived
 
     private val _eulerReceived = MutableLiveData<EulerAngles>()
     val eulerReceived: LiveData<EulerAngles>
@@ -67,8 +82,11 @@ class DeviceService: Service(){
     private var isDownward = false
     private var isIndexed = false
     private var debounce = false
-    var swipedUp = false
-    var swipedDown = false
+    private var isShuffled = false
+    public var swipedUp = false
+    public var swipedDown = false
+    private var curTrack: Track? = null
+    private var justStartedUp = true
 
     companion object {
         private const val ACTION_START_SERVICE = "action_start_service"
@@ -85,71 +103,10 @@ class DeviceService: Service(){
         fun getStopIntent(context: Context): Intent {
             return with(Intent(context, DeviceService::class.java)) {
                 action = ACTION_STOP_SERVICE
-                println("STOPPING INTENT****************")
                 this
             }
         }
     }
-
-    override fun onCreate() {
-        super.onCreate()
-        audioManager = applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        println("Am I being created")
-
-        moniter()
-
-        // checks every 1.2sec to see if the user is holding a swipe up or swipe down gesture
-        // if so will gradually change volume based off of that information
-        mHandler.post(object: Runnable{
-            override fun run() {
-                //println("am I called?")
-                println(swipedUp)
-                if(swipedUp){
-                    println("Steady increase volume")
-                    audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-                }
-                else if(swipedDown){
-                    audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-                }
-                mHandler.postDelayed(this,1200)
-            }
-        })
-    }
-
-    //region Initial set-up stuff
-
-    override fun onDestroy() {
-        super.onDestroy()
-        disposeDisposables()
-    }
-
-    override fun onBind(p0: Intent?): IBinder? {
-        TODO("Not yet implemented")
-    }
-
-    private fun moniter(){
-        Log.d(TAG, "connect called")
-        val deviceDisposable = Application.sdk.monitorConnectedDevices().observeOn(mainScheduler).subscribe(
-            onNext = { pisonDevice ->
-                Log.d(TAG, "$TAG SUCCESS")
-                inTakeData(pisonDevice)
-                pisonRemoteDevice = pisonDevice
-
-            },
-            onError = { throwable ->
-                Log.d(TAG, "$TAG Error:$throwable")
-                _errorReceived.postValue(throwable)
-            }
-        )
-        masterDisposable.add(deviceDisposable)
-    }
-
-    private fun inTakeData(pisonRemoteDevice: PisonRemoteClassifiedDevice){
-        monitorGestures(pisonRemoteDevice)
-        monitorEuler(pisonRemoteDevice)
-        monitorImuState(pisonRemoteDevice)
-    }
-
     private fun sendHaptic(hapticCommandCode: Int, durationMs: Int, intensity: Int, numberBursts: Int) {
         GlobalScope.launch {
             val haptic = getHapticCommand(
@@ -176,14 +133,60 @@ class DeviceService: Service(){
         }
     }
 
-    private fun disposeDisposables() {
-        Log.d(TAG, "disposed of all disposables")
-        masterDisposable.clear(dispose = true)
+    private fun moniter() {
+        Log.d(TAG, "connect called")
+        val deviceDisposable = Application.sdk.monitorConnectedDevices().observeOn(mainScheduler).subscribe(
+            onNext = { pisonDevice ->
+                Log.d(TAG, "$TAG SUCCESS")
+                inTakeData(pisonDevice)
+                pisonRemoteDevice = pisonDevice
+            },
+            onError = { throwable ->
+                Log.d(TAG, "$TAG Error:$throwable")
+                _errorReceived.postValue(throwable)
+            }
+        )
+        masterDisposable.add(deviceDisposable)
     }
 
-    //endregion
+    private fun inTakeData(pisonRemoteDevice: PisonRemoteClassifiedDevice){
+        monitorGestures(pisonRemoteDevice)
+        monitorEuler(pisonRemoteDevice)
+        monitorImuState(pisonRemoteDevice)
+    }
+    override fun onCreate() {
+        super.onCreate()
+        audioManager = applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    //region monitor functions
+        moniter()
+
+        // checks every 1.2sec to see if the user is holding a swipe up or swipe down gesture
+        // if so will gradually change volume based off of that information
+        mHandler.post(object: Runnable{
+            override fun run() {
+                //println("am I called?")
+                println(swipedUp)
+                if(swipedUp){
+                    println("Steady increase volume")
+                    audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
+                }
+                else if(swipedDown){
+                    audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+                }
+                mHandler.postDelayed(this,1200)
+            }
+        })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        disposeDisposables()
+    }
+
+
+    override fun onBind(p0: Intent?): IBinder? {
+        TODO("Not yet implemented")
+    }
 
     // using IMU accelerameter data will trigger two bools to determine if ether your wrist is forwards or backwards
     private fun monitorImuState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
@@ -411,6 +414,8 @@ class DeviceService: Service(){
             )
         masterDisposable.add(eulerDisposable)
     }
-
-    //endregion
+    private fun disposeDisposables() {
+        Log.d(TAG, "disposed of all disposables")
+        masterDisposable.clear(dispose = true)
+    }
 }

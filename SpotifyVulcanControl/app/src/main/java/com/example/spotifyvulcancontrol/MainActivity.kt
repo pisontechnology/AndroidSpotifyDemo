@@ -52,6 +52,13 @@ import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
 import com.example.spotifyvulcancontrol.Application.Companion.spotifyAppRemote
 import com.spotify.android.appremote.api.SpotifyAppRemote
+import android.os.Bundle
+import android.os.IBinder
+import android.os.Message
+import android.os.Messenger
+import androidx.core.app.ServiceCompat.stopForeground
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 
 private const val PISON_PACKAGE = "com.example.spotifyvulcancontrol"
 private const val PISON_CLASS = "$PISON_PACKAGE.DeviceService"
