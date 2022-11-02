@@ -82,6 +82,7 @@ dependencies {
     implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava' // this need to stop some duplacate problem
     implementation files('libs/spotify-app-remote-release-0.7.2.aar')
     implementation 'com.spotify.android:auth:1.2.5' // Maven dependency
+    implementation "com.badoo.reaktive:reaktive-testing:1.2.0"
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'

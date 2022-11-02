@@ -41,10 +41,12 @@ private const val HAPTIC_PULSE = 2
 private const val HAPTIC_BURST = 3
 private const val HAPTIC_OFF = 0
 
+// Make a sound when it unlocks
 private const val DURATION_MS_DEFAULT = 245
-private const val INTENSITY_UnlockLock = 100
-private const val INTENSITY_BASIC = 70
-private const val NUMBER_DEFAULT_UnlockLock = 2
+private const val INTENSITY_UnlockLock = 100 // Change over time first is heavy then medium then light
+private const val INTENSITY_BASIC = 60
+private const val NUMBER_DEFAULT_Unlock = 2
+private const val NUMBER_DEFAULT_Lock = 3
 private const val NUMBER_DEFAULT_BASIC = 1
 
 private const val INCREASE_DELAY = 100
@@ -76,7 +78,7 @@ class DeviceService: Service(){
     val errorReceived: LiveData<Throwable>
         get() = _errorReceived
 
-    private var wakeword = false
+    //private var wakeword = false
     private var isPlaying = false
     private var isUpward = false
     private var isDownward = false
@@ -228,15 +230,15 @@ class DeviceService: Service(){
                     Log.d(TAG, "$GESTURES_TAG $gesture")
                     //print(gesture)
                     if (gesture == "SHAKE_N_INEH"){
-                        wakeword = !wakeword
-                        if(wakeword){
+                        Application.wakeword = !Application.wakeword
+                        if(Application.wakeword){
                             println("WOKE UP")
                             debounce = true
                             sendHaptic(
                                 HAPTIC_BURST,
                                 DURATION_MS_DEFAULT,
                                 INTENSITY_UnlockLock,
-                                NUMBER_DEFAULT_UnlockLock
+                                NUMBER_DEFAULT_Unlock
                             )
                         }else{
                             println("NAP TIME")
@@ -246,11 +248,11 @@ class DeviceService: Service(){
                                 HAPTIC_BURST,
                                 DURATION_MS_DEFAULT,
                                 INTENSITY_UnlockLock,
-                                NUMBER_DEFAULT_UnlockLock
+                                NUMBER_DEFAULT_Lock
                             )
                         }
                     }
-                    if (wakeword) {
+                    if (Application.wakeword) {
                         if(gesture == "DEBOUNCE_LDA_INEH"){
                             isIndexed = true // trigger user is Indexing at the moment
                         }
@@ -260,7 +262,7 @@ class DeviceService: Service(){
                             isIndexed = false
                             debounce = true
                             println("Liked Song")
-
+                            Application.isLiked = true
                             // Adding song to liked songs
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 if(it.track.name != null){
@@ -280,7 +282,7 @@ class DeviceService: Service(){
                             isIndexed = false
                             debounce = true
                             println("Unliked Song")
-
+                            Application.isLiked = false
                             // removing song from liked songs
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 if(it.track.name != null){
@@ -301,6 +303,12 @@ class DeviceService: Service(){
                             debounce = true
                             println("Play Next Song")
                             Application.spotifyAppRemote.playerApi.skipNext()
+                            sendHaptic(
+                                HAPTIC_BURST,
+                                DURATION_MS_DEFAULT,
+                                INTENSITY_BASIC,
+                                NUMBER_DEFAULT_BASIC
+                            )
                         }
                         else if(gesture == "INEH_SWIPE_LEFT"){
                             // skip to previous song
@@ -308,6 +316,12 @@ class DeviceService: Service(){
                             debounce = true
                             println("Play Prev Song")
                             Application.spotifyAppRemote.playerApi.skipPrevious()
+                            sendHaptic(
+                                HAPTIC_BURST,
+                                DURATION_MS_DEFAULT,
+                                INTENSITY_BASIC,
+                                NUMBER_DEFAULT_BASIC
+                            )
                         }
                         else if(gesture == "INEH_SWIPE_UP"){
                             // Swipe up will increase volume set amount
@@ -315,6 +329,12 @@ class DeviceService: Service(){
                             swipedUp = true // trigger hold functionality
                             println("Increase Volume")
                             audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND)
+                            sendHaptic(
+                                HAPTIC_BURST,
+                                DURATION_MS_DEFAULT,
+                                INTENSITY_BASIC,
+                                NUMBER_DEFAULT_BASIC
+                            )
                         }
                         else if(gesture == "INEH_SWIPE_DOWN"){
                             // Swipe down will decrease volume set amount
@@ -322,6 +342,12 @@ class DeviceService: Service(){
                             swipedDown = true // trigger hold functionality
                             println("Decrease Volume")
                             audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+                            sendHaptic(
+                                HAPTIC_BURST,
+                                DURATION_MS_DEFAULT,
+                                INTENSITY_BASIC,
+                                NUMBER_DEFAULT_BASIC
+                            )
                         }
                         /*else if(gesture == "DEBOUNCE_LDA_FHEH"){
                             isIndexed = false
@@ -389,6 +415,7 @@ class DeviceService: Service(){
                             swipedDown = false
                             swipedUp = false
                         }
+                        //MainActivity().updateUI()
                     }
                 },
                 onError = { throwable ->

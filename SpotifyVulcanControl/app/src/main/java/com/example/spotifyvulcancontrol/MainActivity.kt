@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import android.graphics.Bitmap
 import android.media.AudioManager
+import android.media.Image
 import android.os.*
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -24,12 +26,7 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons.Filled
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -56,13 +53,36 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.createBitmap
+import coil.compose.rememberImagePainter
+import com.pison.core.shared.imu.EulerAngles
 import com.spotify.protocol.types.ImageUri
 import com.spotify.protocol.types.Track
+import io.ktor.http.*
+import java.lang.Byte.decode
+import java.util.*
+import kotlin.math.absoluteValue
+import com.badoo.reaktive.observable.Observable
+import com.badoo.reaktive.observable.observableOfEmpty
+
+val defaultEulers: EulerAngles = object : EulerAngles {
+    override val pitch: Float = 0.0f
+    override val roll: Float = 0.0f
+    override val yaw: Float = 0.0f
+}
 
 private const val PISON_PACKAGE = "com.example.spotifyvulcancontrol"
 private const val PISON_CLASS = "$PISON_PACKAGE.DeviceService"
 
 private var spotifyConnected = false
+
+//var songCoverUri: ImageUri // TODO: Uri not working with current image compose
+var likeSong = false
+//var songLength: Long // TODO: The fuck is Long? (Note: some shit in kotlin)
+var currentLength = 0 // TODO: For some reason this is soooo much more work then it should be
+
 
 class MainActivity : ComponentActivity() {
 
@@ -72,17 +92,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Handler(Looper.getMainLooper()).post(object: Runnable{
-            override fun run() {
-                setContent {
-                    println("did i get this far????")
-                    SpotifyVulcanControlTheme {
-                        MyApp()
-                    }
-                }
-                Handler(Looper.getMainLooper()).postDelayed(this,500)
+        setContent(){
+            SpotifyVulcanControlTheme() {
+                MyApp()
             }
-        })
+        }
     }
 
     override fun onStart() {
@@ -169,35 +183,68 @@ private fun MyApp() {
 @Composable
 private fun OnboardingScreen(onContinueClicked: () -> Unit) {
 
+    val songName = remember { mutableStateOf("") }
+    val artistName = remember { mutableStateOf("")}
+    val isPlaying = remember { mutableStateOf(false) }
+    val isLiked = remember { mutableStateOf(false) }
+    val songImage = remember { mutableStateOf(createBitmap(1000,1000))}
+    val songMax = remember { mutableStateOf(0f)}
+    val wakewordVal = remember { mutableStateOf(false)}
     val expanded = remember { mutableStateOf(false) }
+    val songPosition = remember { mutableStateOf(0f)}
 
-    val extraPadding = if (expanded.value) 300.dp else 30.dp
+    var positionMin: Long = 0
+    var positionSec: Long = 0
+    var maxMin: Long = 0
+    var maxSec: Long = 0
+    val positionText = remember { mutableStateOf("")}
+    val maxText = remember { mutableStateOf("")}
 
-    var songName = ""
-    var artistName = ""
-    var songCoverUri: ImageUri // TODO: Uri not working with current image compose
-    var likeSong = false
-    var songLength: Long // TODO: The fuck is Long? (Note: some shit in kotlin)
-    var currentLength = 0 // TODO: For some reason this is soooo much more work then it should be
+    val extraPadding by animateDpAsState(
+        if (expanded.value) 50.dp else 30.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
 
-    println("shiiiiiittttttttttt")
+    // FIX LATER
+    // Hacky solution: called way to often (if experiencing lag this is probably why)
+    // updates the current song position variable to keep slider and everything looking nice
+    Handler(Looper.getMainLooper()).post(object: Runnable{
+        override fun run() {
+            if(spotifyConnected){
+                //println("Hack Update Called")
+                wakewordVal.value = Application.wakeword
 
-    /*if(spotifyConnected){
-        spotifyAppRemote.playerApi.playerState.setResultCallback {
-            songName = it.track.name
-            artistName = it.track.artist.name
-            songCoverUri = it.track.imageUri
-            songLength = it.track.duration
+                spotifyAppRemote.playerApi.playerState.setResultCallback {
+                    songPosition.value = it.playbackPosition.toFloat()
+
+                    println(spotifyAppRemote.userApi.getLibraryState(it.track.uri))
+                }
+            }
+            Handler(Looper.getMainLooper()).postDelayed(this,700)
+        }
+    })
+
+
+    if(spotifyConnected){
+        spotifyAppRemote.playerApi.subscribeToPlayerState().setEventCallback {
+            songName.value = it.track.name
+            artistName.value = it.track.artist.name
+            isPlaying.value = it.isPaused
+            songMax.value = it.track.duration.toFloat()
+            songPosition.value = it.playbackPosition.toFloat()
+
+            spotifyAppRemote.imagesApi.getImage(it.track.imageUri).setResultCallback {
+                songImage.value = it
+            }
         }
     }
     else{
-        songName = "Pending..."
-        artistName = "Pending..."
+        songName.value = "Pending..."
+        artistName.value = "Pending..."
     }
-
-    if(songName == ""){
-        println("shiiiiiittttttttttt")
-    }*/
 
     Surface {
         Column(
@@ -207,11 +254,20 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_testalbumcover_background),
-                contentDescription = "Test Cover",
-                modifier = Modifier.fillMaxSize(),
-                alignment = Alignment.TopCenter)
+            if(spotifyConnected){
+                Image(
+                    bitmap = songImage.value.asImageBitmap(),
+                    contentDescription = "Test Cover",
+                    modifier = Modifier.fillMaxSize(),
+                    alignment = Alignment.TopCenter)
+            }
+            else{
+                Image(
+                    painter = painterResource(id = R.drawable.ic_testalbumcover_background),
+                    contentDescription = "Test Cover",
+                    modifier = Modifier.fillMaxSize(),
+                    alignment = Alignment.TopCenter)
+            }
         }
 
         Column(
@@ -220,11 +276,16 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ){
             Text("", modifier = Modifier.padding(14.dp))
-            Text("Wake Word Here?", style = MaterialTheme.typography.subtitle1)
+            if(wakewordVal.value){
+                Text("Awake", style = MaterialTheme.typography.subtitle1)
+            }
+            else{
+                Text("Asleep", style = MaterialTheme.typography.subtitle1)
+            }
         }
 
         // Song section Includes
-        // Song name, artist name, heart img, slider
+        // Song name, artist name, heart img
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -234,38 +295,84 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             Column(
                 horizontalAlignment = Alignment.Start
             ) {
-                Text("", modifier = Modifier.padding(vertical = 60.dp))
-                Text(songName, style = MaterialTheme.typography.h6,
+                Text("", modifier = Modifier.padding(vertical = 65.dp))
+                Text("${songName.value}", style = MaterialTheme.typography.h6,
                                        modifier = Modifier.padding(vertical = 10.dp),
-                                       fontSize = 23.sp
+                                       fontSize = 23.sp,
                 )
-                Text(artistName, style = MaterialTheme.typography.caption, fontSize = 15.sp)
+                Text("${artistName.value}", style = MaterialTheme.typography.caption, fontSize = 15.sp)
             }
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End) {
-                Text("", modifier = Modifier.padding(vertical = 66.dp))
-                Image(painter = painterResource(id = R.drawable.heart_empty),
-                    contentDescription = null,
-                    modifier = Modifier.size(30.dp)
+                Text("", modifier = Modifier.padding(vertical = 71.dp))
+                isLiked.value = Application.isLiked
+                if(isLiked.value){
+                    Image(painter = painterResource(id = R.drawable.heart_full),
+                        contentDescription = null,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+                else{
+                    Image(painter = painterResource(id = R.drawable.heart_empty),
+                        contentDescription = null,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 30.dp, vertical = 220.dp),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ){
+            Slider(
+                value = songPosition.value,
+                onValueChange = { songPosition.value = it},
+                valueRange = 0f..songMax.value,
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colors.onSurface,
+                    activeTrackColor = MaterialTheme.colors.onSurface
                 )
-            }
-            Row(
-                horizontalArrangement = Arrangement.Start
-            ){
-                Text("Slider Alignment")
-            }
+            )
         }
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 30.dp),
+                .padding(horizontal = 30.dp, vertical = 210.dp),
             verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Start
         ){
-            Text("***********Slider Location here*************",
-                modifier = Modifier.padding(vertical = 220.dp))
+            positionMin = songPosition.value.toLong() / 1000 / 60
+            positionSec = songPosition.value.toLong() / 1000 % 60
+            positionText.value = String.format("%01d:%02d", positionMin, positionSec)
+            Text(
+                "${positionText.value}", // put current time here
+                style = MaterialTheme.typography.caption,
+                fontSize = 10.sp
+            )
+
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 30.dp, vertical = 210.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.End
+        ){
+            maxMin = songMax.value.toLong() / 1000 / 60
+            maxSec = songMax.value.toLong() / 1000 % 60
+            maxText.value = String.format("%01d:%02d", maxMin, maxSec)
+            Text("${maxText.value}", // put full song duration here
+                style = MaterialTheme.typography.caption,
+                fontSize = 10.sp
+            )
         }
 
         Row(
@@ -279,12 +386,22 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
                     .padding(vertical = 110.dp, horizontal = 15.dp)
                     .size(60.dp)
             )
-            Image(painter = painterResource(id = R.drawable.play_button),
-                  contentDescription = null,
-                  modifier = Modifier
-                      .padding(vertical = 110.dp, horizontal = 15.dp)
-                      .size(60.dp)
-            )
+            if(isPlaying.value){
+                Image(painter = painterResource(id = R.drawable.play_button),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(vertical = 110.dp, horizontal = 15.dp)
+                        .size(60.dp)
+                )
+            }
+            else{
+                Image(painter = painterResource(id = R.drawable.pauce_button),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(vertical = 110.dp, horizontal = 15.dp)
+                        .size(60.dp)
+                )
+            }
             Image(painter = painterResource(id = R.drawable.ic_skip),
                 contentDescription = null,
                 modifier = Modifier
@@ -292,7 +409,6 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
                     .size(60.dp)
             )
         }
-
 
         // EMI Inferences stuff here *****
 
@@ -366,6 +482,7 @@ private fun Greetings(names: List<String> = List(1000) { "$it" } ) {
 
 @Composable
 private fun RealTimePortrait(
+    eulerStream: Observable<EulerAngles> = observableOfEmpty()
     /*eulerStream: Observable<EulerAngles>,
     waveProcessor: WaveProcessor,
     ldaOutput: Observable<LdaVerdict>,
@@ -386,14 +503,14 @@ private fun RealTimePortrait(
         Box(modifier = Modifier
             .weight(0.8f)
             .padding(bottom = 20.dp)) {
-            EulersDisplay()//eulerStream = eulerStream, sqiOutput = sqiOutput)
+            EulersDisplay(eulerStream = eulerStream)//, sqiOutput = sqiOutput)
         }
     }
 }
 
 @Composable
 private fun EulersDisplay(
-    //eulerStream: Observable<EulerAngles>,
+    eulerStream: Observable<EulerAngles>,
     //sqiOutput: Observable<SqiErrorVerdict>
 ){
     Column(
@@ -424,52 +541,11 @@ private fun EulersDisplay(
         }
 
         //val eulers by eulerStream.subscribeAsState(initial = defaultEulers)
-        //val sqi by sqiOutput.subscribeAsState(initial = SqiErrorVerdict(listOf("[No Verdict]")))
         Row(
             Modifier
                 .weight(1f)
                 .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            /*Column(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()) {
-                Text(
-                    text = "EEMI",
-                    color = Color.DarkGray,//if (sqi.values.contains("High EMI")) MaterialTheme.colors.primary else Color.DarkGray,
-                    fontSize = 24.sp,
-                    modifier = Modifier
-                        .padding(top = 30.dp, start = 30.dp)
-                )
-                Text(
-                    text = "ENAC",
-                    color = Color.DarkGray,//if (sqi.values.contains("Not a class")) MaterialTheme.colors.primary else Color.DarkGray,
-                    fontSize = 24.sp,
-                    modifier = Modifier
-                        .padding(top = 30.dp, start = 30.dp)
-                )
-                Text(
-                    text = "ENOISE",
-                    color = Color.DarkGray,//if (sqi.values.contains("High noise")) MaterialTheme.colors.primary else Color.DarkGray,
-                    fontSize = 24.sp,
-                    modifier = Modifier
-                        .padding(top = 30.dp, start = 30.dp)
-                )
-                Text(
-                    text = "EBLE",
-                    color = Color.DarkGray,//if (sqi.values.contains("BLE packet drop rate")) MaterialTheme.colors.primary else Color.DarkGray,
-                    fontSize = 24.sp,
-                    modifier = Modifier
-                        .padding(top = 30.dp, start = 30.dp)
-                )
-                Text(
-                    text = "ELOSNR",
-                    color = Color.DarkGray,//if (sqi.values.contains("Low SNR")) MaterialTheme.colors.primary else Color.DarkGray,
-                    fontSize = 24.sp,
-                    modifier = Modifier
-                        .padding(top = 30.dp, start = 30.dp)
-                )
-            }*/
             Column(
                 Modifier
                     .padding(start = 50.dp)
@@ -614,41 +690,6 @@ private fun CardContent(name: String) {
         }
     }
 }
-
-// Preview for EMI stuff
-/*
-@Preview(showBackground = true, widthDp = 320)
-@Composable
-fun DefaultPreview() {
-    SpotifyVulcanControlTheme {
-        RealTimePortrait()//eulerStream, waveProcessor, ldaOutput, eventOutput, swipeOutput, sqiOutput, rssiOutput)
-    }
-}*/
-
-/* For later
-class RealTimeVizViewModelAdapter(delegate: RealTimeVizViewModel) :
-    AndroidViewModelAdapter<RealTimeVizViewModel>(delegate)
-
-class RealTimeVizActivity : BaseActivity<RealTimeVizViewModel, RealTimeVizViewModelAdapter>() {
-    override val viewModelAdapterClass: Class<out RealTimeVizViewModelAdapter> =
-        RealTimeVizViewModelAdapter::class.java
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            RealTimeVizView(
-                viewModel.eulerAngles,
-                viewModel.waveProcessor,
-                viewModel.ldaOutput,
-                viewModel.eventOutput,
-                viewModel.swipeOutput,
-                viewModel.sqiOutput,
-                viewModel.signalRssiOutput
-            )
-        }
-    }
-}
- */
 
 @Preview
 @Preview(device = Devices.AUTOMOTIVE_1024p, widthDp = 740, heightDp = 360)
