@@ -4,10 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.content.res.Configuration.UI_MODE_NIGHT_YES
-import android.graphics.Bitmap
-import android.media.AudioManager
-import android.media.Image
 import android.os.*
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -17,11 +13,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons.Filled
 import androidx.compose.material.icons.filled.ExpandLess
@@ -31,19 +23,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.modifier.modifierLocalConsumer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.pison.core.client.newPisonSdkInstance
 import com.example.spotifyvulcancontrol.ui.theme.SpotifyVulcanControlTheme
 import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
@@ -53,19 +40,23 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.createBitmap
-import coil.compose.rememberImagePainter
 import com.pison.core.shared.imu.EulerAngles
-import com.spotify.protocol.types.ImageUri
-import com.spotify.protocol.types.Track
 import io.ktor.http.*
-import java.lang.Byte.decode
 import java.util.*
-import kotlin.math.absoluteValue
 import com.badoo.reaktive.observable.Observable
 import com.badoo.reaktive.observable.observableOfEmpty
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import com.example.spotifyvulcancontrol.Application.Companion.sdk
+import com.example.spotifyvulcancontrol.util.subscribeAsState
+import com.example.spotifyvulcancontrol.view.WaveView
+import com.example.spotifyvulcancontrol.viewModel.WaveProcessor
+import com.spotify.protocol.types.LibraryState
 
 val defaultEulers: EulerAngles = object : EulerAngles {
     override val pitch: Float = 0.0f
@@ -78,10 +69,11 @@ private const val PISON_CLASS = "$PISON_PACKAGE.DeviceService"
 
 private var spotifyConnected = false
 
-//var songCoverUri: ImageUri // TODO: Uri not working with current image compose
-var likeSong = false
-//var songLength: Long // TODO: The fuck is Long? (Note: some shit in kotlin)
-var currentLength = 0 // TODO: For some reason this is soooo much more work then it should be
+var lastSwipe = ""
+var lastShake = ""
+var lastGesture = ""
+
+val waveProcessor: WaveProcessor = WaveProcessor()
 
 
 class MainActivity : ComponentActivity() {
@@ -94,7 +86,7 @@ class MainActivity : ComponentActivity() {
 
         setContent(){
             SpotifyVulcanControlTheme() {
-                MyApp()
+                OnboardingScreen(onContinueClicked = {})
             }
         }
     }
@@ -170,35 +162,28 @@ class MainActivity : ComponentActivity() {
 //region Compose Functions
 
 @Composable
-private fun MyApp() {
-    var shouldShowOnboarding by rememberSaveable { mutableStateOf(true) }
-
-    if (shouldShowOnboarding) {
-        OnboardingScreen(onContinueClicked = { shouldShowOnboarding = false })
-    } else {
-        Greetings()
-    }
-}
-
-@Composable
-private fun OnboardingScreen(onContinueClicked: () -> Unit) {
-
+private fun OnboardingScreen(
+    onContinueClicked: () -> Unit
+) {
     val songName = remember { mutableStateOf("") }
     val artistName = remember { mutableStateOf("")}
     val isPlaying = remember { mutableStateOf(false) }
-    val isLiked = remember { mutableStateOf(false) }
     val songImage = remember { mutableStateOf(createBitmap(1000,1000))}
     val songMax = remember { mutableStateOf(0f)}
     val wakewordVal = remember { mutableStateOf(false)}
     val expanded = remember { mutableStateOf(false) }
     val songPosition = remember { mutableStateOf(0f)}
+    val gesture = remember { mutableStateOf("")}
+    val eulerAngles = remember { mutableStateOf(defaultEulers)}
+    val positionText = remember { mutableStateOf("")}
+    val maxText = remember { mutableStateOf("")}
+    val songLiked = remember { mutableStateOf(false)}
+    val scrollText = rememberScrollState()
 
     var positionMin: Long = 0
     var positionSec: Long = 0
     var maxMin: Long = 0
     var maxSec: Long = 0
-    val positionText = remember { mutableStateOf("")}
-    val maxText = remember { mutableStateOf("")}
 
     val extraPadding by animateDpAsState(
         if (expanded.value) 50.dp else 30.dp,
@@ -216,17 +201,19 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             if(spotifyConnected){
                 //println("Hack Update Called")
                 wakewordVal.value = Application.wakeword
+                gesture.value = Application.currentGesture
+                eulerAngles.value = Application.eulerAngles
 
                 spotifyAppRemote.playerApi.playerState.setResultCallback {
                     songPosition.value = it.playbackPosition.toFloat()
-
-                    println(spotifyAppRemote.userApi.getLibraryState(it.track.uri))
+                    spotifyAppRemote.userApi.getLibraryState(it.track.uri).setResultCallback {
+                        songLiked.value = it.isAdded
+                    }
                 }
             }
-            Handler(Looper.getMainLooper()).postDelayed(this,700)
+            Handler(Looper.getMainLooper()).postDelayed(this,50)
         }
     })
-
 
     if(spotifyConnected){
         spotifyAppRemote.playerApi.subscribeToPlayerState().setEventCallback {
@@ -297,8 +284,10 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
             ) {
                 Text("", modifier = Modifier.padding(vertical = 65.dp))
                 Text("${songName.value}", style = MaterialTheme.typography.h6,
-                                       modifier = Modifier.padding(vertical = 10.dp),
-                                       fontSize = 23.sp,
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .horizontalScroll(scrollText),
+                    fontSize = 23.sp,
                 )
                 Text("${artistName.value}", style = MaterialTheme.typography.caption, fontSize = 15.sp)
             }
@@ -306,8 +295,7 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End) {
                 Text("", modifier = Modifier.padding(vertical = 71.dp))
-                isLiked.value = Application.isLiked
-                if(isLiked.value){
+                if(songLiked.value){
                     Image(painter = painterResource(id = R.drawable.heart_full),
                         contentDescription = null,
                         modifier = Modifier.size(23.dp)
@@ -462,7 +450,7 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        RealTimePortrait()
+                        RealTimePortrait(gesture, eulerAngles)
                     }
                 }
             }
@@ -471,18 +459,10 @@ private fun OnboardingScreen(onContinueClicked: () -> Unit) {
 }
 
 @Composable
-private fun Greetings(names: List<String> = List(1000) { "$it" } ) {
-
-    /*LazyColumn(modifier = Modifier.padding(vertical = 4.dp)) {
-        items(items = names) { name ->
-            Greeting(name = name)
-        }
-    }*/
-}
-
-@Composable
 private fun RealTimePortrait(
-    eulerStream: Observable<EulerAngles> = observableOfEmpty()
+    gesture: MutableState<String>,
+    eulerStream: MutableState<EulerAngles>
+    //waveProcessor: WaveProcessor
     /*eulerStream: Observable<EulerAngles>,
     waveProcessor: WaveProcessor,
     ldaOutput: Observable<LdaVerdict>,
@@ -498,7 +478,7 @@ private fun RealTimePortrait(
         Box(modifier = Modifier
             .weight(1f)
             .padding(bottom = 10.dp)) {
-            SignalDisplay()//waveProcessor = waveProcessor, ldaOutput, eventOutput, swipeOutput, rssiOutput)
+            SignalDisplay(gesture)//waveProcessor = waveProcessor, ldaOutput, eventOutput, swipeOutput, rssiOutput)
         }
         Box(modifier = Modifier
             .weight(0.8f)
@@ -510,7 +490,7 @@ private fun RealTimePortrait(
 
 @Composable
 private fun EulersDisplay(
-    eulerStream: Observable<EulerAngles>,
+    eulerStream: MutableState<EulerAngles>
     //sqiOutput: Observable<SqiErrorVerdict>
 ){
     Column(
@@ -522,7 +502,7 @@ private fun EulersDisplay(
                 Modifier
                     .width(100.dp)
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 40.dp)
+                    .padding(top = 20.dp)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_dial_arrow),
@@ -531,7 +511,7 @@ private fun EulersDisplay(
                         .rotate(rotation)
                         .aspectRatio(1f)
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = label,
                     color = Color.White,
@@ -544,18 +524,21 @@ private fun EulersDisplay(
         Row(
             Modifier
                 .weight(1f)
-                .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly
+                .fillMaxWidth(), //horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Column(
                 Modifier
-                    .padding(start = 50.dp)
                     .weight(1f)
-                    .fillMaxWidth()){
-                Row() {
-                    Dial(rotation = 0 + 90f, label = "Yaw")//eulers.yaw + 90f, label = "Yaw")
-                    Dial(rotation = 0 - 180f, label = "Pitch")//eulers.pitch - 180f, label = "Pitch")
+                    .fillMaxWidth())
+                    //.padding(start = 40.dp)
+                    {
+                Dial(rotation = -(eulerStream.value.roll - 90f), label = "Roll")
+                Row(modifier = Modifier.padding(horizontal = 60.dp)) {
+                    Dial(rotation = eulerStream.value.yaw + 90f, label = "Yaw")
+                    Row(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Dial(rotation = eulerStream.value.pitch - 180f, label = "Pitch")
+                    }
                 }
-                Dial(rotation = -(0 - 90f), label = "Roll")//-(eulers.roll - 90f), label = "Roll")
             }
         }
     }
@@ -563,22 +546,23 @@ private fun EulersDisplay(
 
 @Composable
 private fun SignalDisplay(
-    /*waveProcessor: WaveProcessor,
-    ldaOutput: Observable<LdaVerdict>,
+    gesture:  MutableState<String>
+    //waveProcessor: WaveProcessor,
+    /*ldaOutput: Observable<LdaVerdict>,
     eventOutput: Observable<HighlightedInference>,
     swipeOutput: Observable<HighlightedInference>,
     rssiOutput: Observable<RssiDisplay>*/
 ) {
     Column {
-        VerdictHeader()//ldaOutput = ldaOutput, eventOutput = eventOutput, swipeOutput = swipeOutput, rssiOutput = rssiOutput)
-        BoxWithConstraints {
+        VerdictHeader(gesture)//ldaOutput = ldaOutput, eventOutput = eventOutput, swipeOutput = swipeOutput, rssiOutput = rssiOutput)
+        BoxWithConstraints{
             //println("reconstraint")
             // Is an import for com.pison.neohub.view.WaveView
-            /*WaveView(
+            WaveView(
                 waveProcessor = waveProcessor,
                 width = maxWidth,
                 height = maxHeight
-            )*/
+            )
         }
 
     }
@@ -586,6 +570,7 @@ private fun SignalDisplay(
 
 @Composable
 private fun VerdictHeader(
+    gesture:  MutableState<String>
     /*ldaOutput: Observable<LdaVerdict>,
     eventOutput: Observable<HighlightedInference>,
     swipeOutput: Observable<HighlightedInference>,
@@ -594,13 +579,13 @@ private fun VerdictHeader(
     Column(
         Modifier
             .fillMaxWidth()
-            .height(150.dp)) {
+            .height(180.dp)) {
         //val ldaVerdict by ldaOutput.subscribeAsState(initial = LdaVerdict("[No Verdict]", 0.0f))
         //val event by eventOutput.subscribeAsState(initial = HighlightedInference("[No Event]", false))
         //val swipe by swipeOutput.subscribeAsState(initial = HighlightedInference("[No Swipe]", false))
         //val rssi by rssiOutput.subscribeAsState(initial = RssiDisplay("", false))
         Text(
-            text = "[No Verdict]", //ldaVerdict.name,
+            text = gestureInputs(gesture.value), //ldaVerdict.name,
             color = Color.White,
             fontSize = 24.sp,
             modifier = Modifier
@@ -608,7 +593,7 @@ private fun VerdictHeader(
                 .padding(top = 40.dp)
         )
         Text(
-            text = "[No Event]", //event.inference,
+            text = shakeInputs(gesture.value), //event.inference,
             color = Color.White, //if (event.highlight) MaterialTheme.colors.primary else Color.DarkGray,
             fontSize = 24.sp,
             modifier = Modifier
@@ -616,77 +601,62 @@ private fun VerdictHeader(
                 .padding(top = 6.dp)
         )
         Text(
-            text = "[No Swipe]", //swipe.inference,
+            text = swipeInputs(gesture.value), //swipe.inference,
             color = Color.White,//if (swipe.highlight) MaterialTheme.colors.primary else Color.DarkGray,
             fontSize = 24.sp,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 6.dp)
         )
-        /*Text(
-            text = "?",//rssi.rssi,
-            color = Color.Red,//if (rssi.highlight) Color.Red else Color.White,
-            fontSize = 12.sp,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(top = 6.dp)
-        )*/
     }
 }
 
-@Composable
-private fun Greeting(name: String) {
-    Card(
-        backgroundColor = MaterialTheme.colors.primary,
-        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
-    ) {
-        CardContent(name)
-    }
-}
-
-@Composable
-private fun CardContent(name: String) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier
-            .padding(12.dp)
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(12.dp)
-        ) {
-            Text(text = "Hello, ")
-            Text(
-                text = name,
-                style = MaterialTheme.typography.h4.copy(
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-            if (expanded) {
-                Text(
-                    text = ("Composem ipsum color sit lazy, " +
-                            "padding theme elit, sed do bouncy. ").repeat(4),
-                )
-            }
+fun gestureInputs(gesture: String): String{
+    when (gesture){
+        "DEBOUNCE_LDA_INEH" -> { lastGesture = "INEH"
+            return "INEH" }
+        "DEBOUNCE_LDA_FHEH" -> { lastGesture = "FHEH"
+            return "FHEH" }
+        "DEBOUNCE_LDA_TEH" -> { lastGesture = "TEH"
+            return "TEH" }
+        else -> {
+            return lastGesture
         }
-        IconButton(onClick = { expanded = !expanded }) {
-            Icon(
-                imageVector = if (expanded) Filled.ExpandLess else Filled.ExpandMore,
-                contentDescription = if (expanded) {
-                    stringResource(R.string.show_less)
-                } else {
-                    stringResource(R.string.show_more)
-                }
+    }
+}
 
-            )
+fun shakeInputs(gesture: String): String{
+    when (gesture){
+        "SHAKE" -> { lastShake = gesture
+            return gesture }
+        "SHAKE_N_INEH" -> { lastShake = gesture
+            return gesture }
+        "SHAKE_N_FHEH" -> { lastShake = gesture
+            return gesture }
+        "SHAKE_N_TEH" -> { lastShake = gesture
+            return gesture }
+        else -> {
+            return lastShake
+        }
+    }
+}
+
+fun swipeInputs(gesture: String): String {
+    when (gesture){
+        "INEH_SWIPE_RIGHT" -> { lastSwipe = gesture
+            return gesture }
+        "INEH_SWIPE_LEFT" -> { lastSwipe = gesture
+            return gesture }
+        "FHEH_SWIPE_RIGHT" -> { lastSwipe = gesture
+            return gesture }
+        "FHEH_SWIPE_LEFT" -> { lastSwipe = gesture
+            return gesture }
+        "TEH_SWIPE_RIGHT" -> { lastSwipe = gesture
+            return gesture }
+        "TEH_SWIPE_LEFT" -> { lastSwipe = gesture
+            return gesture }
+        else -> {
+            return lastSwipe
         }
     }
 }

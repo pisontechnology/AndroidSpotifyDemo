@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.AsyncPlayer
 import android.media.AudioManager
 import android.os.Handler
 import android.os.IBinder
@@ -78,17 +79,14 @@ class DeviceService: Service(){
     val errorReceived: LiveData<Throwable>
         get() = _errorReceived
 
-    //private var wakeword = false
     private var isPlaying = false
     private var isUpward = false
     private var isDownward = false
     private var isIndexed = false
     private var debounce = false
     private var isShuffled = false
-    public var swipedUp = false
-    public var swipedDown = false
-    private var curTrack: Track? = null
-    private var justStartedUp = true
+    var swipedUp = false
+    var swipedDown = false
 
     companion object {
         private const val ACTION_START_SERVICE = "action_start_service"
@@ -155,6 +153,7 @@ class DeviceService: Service(){
         monitorGestures(pisonRemoteDevice)
         monitorEuler(pisonRemoteDevice)
         monitorImuState(pisonRemoteDevice)
+        moniterDeviceState(pisonRemoteDevice)
     }
     override fun onCreate() {
         super.onCreate()
@@ -187,6 +186,16 @@ class DeviceService: Service(){
 
     override fun onBind(p0: Intent?): IBinder? {
         return null
+    }
+
+    private fun moniterDeviceState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
+        val deviceStateDisposable =
+            pisonRemoteDevice.monitorDeviceState().observeOn(mainScheduler).subscribe(
+                onNext = { deviceState ->
+
+                },
+                onError = { throwable ->  Log.d("DEVICE STATE", "ERROR: $throwable") }
+            )
     }
 
     // using IMU accelerameter data will trigger two bools to determine if ether your wrist is forwards or backwards
@@ -227,7 +236,8 @@ class DeviceService: Service(){
         val gestureDisposable =
             pisonRemoteDevice.monitorFrameTags().flatMapIterable { it }.observeOn(mainScheduler).subscribe(
                 onNext = { gesture ->
-                    Log.d(TAG, "$GESTURES_TAG $gesture")
+                    //Log.d(TAG, "$GESTURES_TAG $gesture")
+                    Application.currentGesture = gesture
                     //print(gesture)
                     if (gesture == "SHAKE_N_INEH"){
                         Application.wakeword = !Application.wakeword
@@ -262,7 +272,6 @@ class DeviceService: Service(){
                             isIndexed = false
                             debounce = true
                             println("Liked Song")
-                            Application.isLiked = true
                             // Adding song to liked songs
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 if(it.track.name != null){
@@ -282,7 +291,6 @@ class DeviceService: Service(){
                             isIndexed = false
                             debounce = true
                             println("Unliked Song")
-                            Application.isLiked = false
                             // removing song from liked songs
                             Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                 if(it.track.name != null){
@@ -429,9 +437,9 @@ class DeviceService: Service(){
     private fun monitorEuler(pisonRemoteDevice: PisonRemoteClassifiedDevice) {
         val eulerDisposable =
             pisonRemoteDevice.monitorEulerAngles().observeOn(mainScheduler).subscribe(
-                onNext = { euler ->
-                    //Log.d(TAG, "$EULER_TAG $euler")
-                    _eulerReceived.postValue(euler)
+                onNext = { eulerAngle ->
+                    Application.eulerAngles = eulerAngle
+                    _eulerReceived.postValue(eulerAngle)
                 },
                 onError = { throwable ->
                     Log.d(TAG, " $EULER_TAG ERROR $throwable")
