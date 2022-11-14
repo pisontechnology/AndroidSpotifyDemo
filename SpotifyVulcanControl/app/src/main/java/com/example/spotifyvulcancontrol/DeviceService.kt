@@ -18,9 +18,8 @@ import com.badoo.reaktive.observable.flatMapIterable
 import com.badoo.reaktive.observable.observeOn
 import com.badoo.reaktive.observable.subscribe
 import com.badoo.reaktive.scheduler.mainScheduler
-import com.pison.core.client.PisonRemoteClassifiedDevice
-import com.pison.core.client.PisonRemoteDevice
-import com.pison.core.client.monitorConnectedDevices
+import com.pison.core.client.*
+import com.pison.core.shared.connection.ConnectedDevice
 import com.pison.core.shared.haptic.*
 import com.pison.core.shared.imu.EulerAngles
 import com.spotify.android.appremote.api.SpotifyAppRemote
@@ -29,8 +28,25 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import com.spotify.protocol.types.Track;
 import kotlinx.coroutines.Runnable
+import com.pison.core.shared.DEFAULT_PISON_PORT
 import java.util.*
+import com.pison.core.client.PisonRemoteServer
+import com.pison.core.client.PisonSdk
+import com.pison.core.client.newPisonSdkInstance
+import com.pison.core.shared.connection.ConnectedDeviceUpdate
+import com.pison.core.shared.connection.ConnectedFailedUpdate
+import com.pison.core.shared.connection.DisconnectedDeviceUpdate
+import com.pison.core.transmission.DownlinkFrameVersion
+import com.pison.core.transmission.v4.downlink.DownlinkDenormalizedTransmissionPacketV4
+import com.pison.core.transmission.v4.downlink.DownlinkTransmissionPacketV4
+import com.pison.core.transmission.v4.downlink.denormalize
+import org.apache.commons.math3.transform.DftNormalization
+import org.apache.commons.math3.transform.FastFourierTransformer
+import org.apache.commons.math3.transform.TransformType
 import java.util.concurrent.Executor
+import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.roundToInt
 
 const val SERVER_INITIALIZE_COMMAND = 1
 private const val TAG = "DEVICE SERVICES"
@@ -52,7 +68,7 @@ private const val NUMBER_DEFAULT_BASIC = 1
 
 private const val INCREASE_DELAY = 100
 
-
+//private val fftFilter = FftFilter(16, 2)
 
 @Suppress("DEPRECATION")
 @ExperimentalStdlibApi
@@ -84,7 +100,7 @@ class DeviceService: Service(){
     private var isDownward = false
     private var isIndexed = false
     private var debounce = false
-    private var isShuffled = false
+    //private var isShuffled = false
     var swipedUp = false
     var swipedDown = false
 
@@ -153,7 +169,7 @@ class DeviceService: Service(){
         monitorGestures(pisonRemoteDevice)
         monitorEuler(pisonRemoteDevice)
         monitorImuState(pisonRemoteDevice)
-        moniterDeviceState(pisonRemoteDevice)
+        monitorDeviceState(pisonRemoteDevice)
     }
     override fun onCreate() {
         super.onCreate()
@@ -188,14 +204,126 @@ class DeviceService: Service(){
         return null
     }
 
-    private fun moniterDeviceState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
+    private fun monitorDeviceState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
         val deviceStateDisposable =
-            pisonRemoteDevice.monitorDeviceState().observeOn(mainScheduler).subscribe(
-                onNext = { deviceState ->
-
-                },
-                onError = { throwable ->  Log.d("DEVICE STATE", "ERROR: $throwable") }
+            Application.sdk.monitorConnections().observeOn(mainScheduler).subscribe(
+                onNext = {
+                    when(it) {
+                        is ConnectedDeviceUpdate -> {
+                            println("Pison device connected: ${it.connectedDevice.deviceName}")
+                            monitorRawData(it.connectedDevice)
+                        }
+                        DisconnectedDeviceUpdate -> println("Pison device disconnected!")
+                        is ConnectedFailedUpdate -> println("Error connecting to Pison Device: ${it.reason}")
+                    }
+                }
             )
+        masterDisposable.add(deviceStateDisposable)
+    }
+
+    private fun monitorRawData(connectedDevice: ConnectedDevice){
+        val deviceMonitorDisposable =
+            Application.sdk.monitorRawDevice(connectedDevice).subscribe(
+                onNext = { rawDevice ->
+            println("monitoring device in raw mode: ${rawDevice.deviceId}")
+                    onMonitoringDevice(rawDevice)
+        },
+                onError = {
+            println("device ${connectedDevice.deviceName} has disconnected!")
+        })
+        masterDisposable.add(deviceMonitorDisposable)
+    }
+
+    private fun onMonitoringDevice(rawDevice: PisonRemoteRawDevice) {
+        val rawDataDisposable =
+            rawDevice.monitorRawData().observeOn(mainScheduler).subscribe(onNext = { rawBytes: ByteArray ->
+                val parser = DownlinkFrameVersion.V4.buildNewParser()
+                val packets: List<DownlinkTransmissionPacketV4> = parser.parse(rawBytes)
+                packets.asSequence()
+                    .flatMap { it.denormalize() }
+                    .forEach {
+                        processDenormalizePacket(it)
+                    }
+            }, onError = {
+                println("Stop streaming raw data SDKVersion=${rawDevice.server.sdkVersionType} " +
+                        "deviceId=${rawDevice.deviceId} from ${rawDevice.server.hostAddress}:${rawDevice.server.hostPort}" +
+                        " for session ${rawDevice.sessionId} Caused by: ${it.message}")
+            }, onComplete = {
+                println("${rawDevice.deviceId} from ${rawDevice.server} for session ${rawDevice.sessionId} done")
+            })
+        masterDisposable.add(rawDataDisposable)
+    }
+
+    private var lastStoredFrame: MutableList<Double> = MutableList<Double>(0) {0.0}
+    private var isInitialized = false
+    private var lastFrameTimestamp = -1.0
+    private var lastFrameTimeDiff = -1.0
+    private val fftBuffers = List(2) { MutableList(16) { 0.0 } }
+    private var fft = FastFourierTransformer(DftNormalization.UNITARY)
+    //private val fHz = (0 until (16)).toMutableList()
+
+    private fun processDenormalizePacket(it: DownlinkDenormalizedTransmissionPacketV4) {
+        //val lastFrame = lastStoredFrame ?: run{
+        //    lastStoredFrame = it.contents.adc?.adcRaw!!.toMutableList()
+        //}
+
+        val deltaFrame = it.contents.adc?.adcRaw?.toMutableList()?.zip(lastStoredFrame)?.map { (l, r) -> l -r }
+        lastStoredFrame = it.contents.adc?.adcRaw!!.toMutableList()
+        val nowTime = it.timeStampMs
+
+        if(!isInitialized){
+            lastFrameTimestamp = nowTime
+            isInitialized = true
+        }
+
+        lastFrameTimeDiff = nowTime - lastFrameTimestamp
+        lastFrameTimestamp = nowTime
+
+        appendInterpolatedPoints(deltaFrame!!.toMutableList())
+        val ys = fftBuffers.mapIndexed { index, buffer ->
+            buffer.add(deltaFrame[index])
+            buffer.subList(0, buffer.size - 16).clear()
+            val y = fft.transform(buffer.toDoubleArray(), TransformType.FORWARD)
+            List(16){
+                (y[it].abs() / 16).toInt()
+            }
+        }
+
+        ys.get(1).maxOrNull()?.let {
+            println(it.toFloat())
+            Application.rawAdcAverage = (it.toFloat() / 600f).coerceIn(0.03f..1f)
+        }
+
+        //println(Application.rawAdcAverage)
+    }
+
+    private fun appendInterpolatedPoints(deltaFrame: List<Double>) {
+        // Step 0 and Step 1 are the increments expected from the signal every 1ms.
+        fftBuffers.forEachIndexed { i, buffer ->
+            val last = buffer.last()
+            val step: Double = getAbsDiff(last, deltaFrame[i]) / lastFrameTimeDiff
+            interpolateAndAddToBuffer(
+                last,
+                lastFrameTimeDiff.roundToInt(),
+                step,
+                buffer
+            )
+        }
+    }
+
+    private fun getAbsDiff(last: Double, current: Double): Double {
+        return abs(current - last)
+    }
+
+    private fun interpolateAndAddToBuffer(
+        start_value: Double,
+        diffTime: Int,
+        step: Double,
+        fftBuffer: MutableList<Double>
+    ) {
+        for (i in 1 until diffTime) {
+            fftBuffer.add(start_value + i * floor(step))
+        }
     }
 
     // using IMU accelerameter data will trigger two bools to determine if ether your wrist is forwards or backwards

@@ -40,6 +40,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
@@ -52,6 +53,11 @@ import com.badoo.reaktive.observable.Observable
 import com.badoo.reaktive.observable.observableOfEmpty
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import com.badoo.reaktive.observable.merge
+import com.badoo.reaktive.observable.observableOf
+import com.badoo.reaktive.scheduler.ioScheduler
+import com.badoo.reaktive.subject.behavior.BehaviorSubject
+import com.badoo.reaktive.subject.publish.PublishSubject
 import com.example.spotifyvulcancontrol.Application.Companion.sdk
 import com.example.spotifyvulcancontrol.util.subscribeAsState
 import com.example.spotifyvulcancontrol.view.WaveView
@@ -178,7 +184,8 @@ private fun OnboardingScreen(
     val positionText = remember { mutableStateOf("")}
     val maxText = remember { mutableStateOf("")}
     val songLiked = remember { mutableStateOf(false)}
-    val scrollText = rememberScrollState()
+    val helpPopUp = remember { mutableStateOf(false)}
+    val adjustedStrength = remember{ mutableStateOf(0f)}
 
     var positionMin: Long = 0
     var positionSec: Long = 0
@@ -193,6 +200,8 @@ private fun OnboardingScreen(
         )
     )
 
+    print(helpPopUp.value)
+
     // FIX LATER
     // Hacky solution: called way to often (if experiencing lag this is probably why)
     // updates the current song position variable to keep slider and everything looking nice
@@ -203,6 +212,11 @@ private fun OnboardingScreen(
                 wakewordVal.value = Application.wakeword
                 gesture.value = Application.currentGesture
                 eulerAngles.value = Application.eulerAngles
+
+                adjustedStrength.value = Application.rawAdcAverage
+                //adjustedStrength.value = (adjustedStrength.value / 600f).coerceIn(0.03f..1f)
+                waveProcessor.setAmplitude(adjustedStrength.value)
+                //println(Application.rawAdcAverage)
 
                 spotifyAppRemote.playerApi.playerState.setResultCallback {
                     songPosition.value = it.playbackPosition.toFloat()
@@ -229,7 +243,7 @@ private fun OnboardingScreen(
         }
     }
     else{
-        songName.value = "Pending..."
+        songName.value = "Pendinggggggggggggg..."
         artistName.value = "Pending..."
     }
 
@@ -237,7 +251,7 @@ private fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(30.dp, vertical = 30.dp),
+                .padding(30.dp, vertical = 60.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
@@ -258,16 +272,40 @@ private fun OnboardingScreen(
         }
 
         Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 120.dp, horizontal = 30.dp),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.Start
         ){
             Text("", modifier = Modifier.padding(14.dp))
             if(wakewordVal.value){
-                Text("Awake", style = MaterialTheme.typography.subtitle1)
+                Image(painter = painterResource(id = R.drawable.wakeword_awake),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
             }
             else{
-                Text("Asleep", style = MaterialTheme.typography.subtitle1)
+                Image(painter = painterResource(id = R.drawable.wakeword_asleep),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+
+        Column(modifier = Modifier
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .fillMaxSize(),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.End
+        ) {
+            IconButton(
+                onClick = { helpPopUp.value = !helpPopUp.value }
+            ) {
+                Image(painter = painterResource(id = R.drawable.help_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(23.dp),
+                )
             }
         }
 
@@ -282,13 +320,25 @@ private fun OnboardingScreen(
             Column(
                 horizontalAlignment = Alignment.Start
             ) {
-                Text("", modifier = Modifier.padding(vertical = 65.dp))
-                Text("${songName.value}", style = MaterialTheme.typography.h6,
-                    modifier = Modifier
-                        .padding(vertical = 10.dp)
-                        .horizontalScroll(scrollText),
-                    fontSize = 23.sp,
-                )
+                Text("", modifier = Modifier.padding(vertical = 70.dp))
+                if(songName.value.length >= 22){
+                    Box(modifier = Modifier.size(width = 305.dp, height = 52.dp)){
+                        AutoScrollingLazyRow(list = (1..8).take(1)) {
+                            Text("${songName.value}    ", style = MaterialTheme.typography.h6,
+                                modifier = Modifier
+                                    .padding(vertical = 10.dp),
+                                fontSize = 23.sp,
+                            )
+                        }
+                    }
+                }
+                else{
+                    Text("${songName.value}", style = MaterialTheme.typography.h6,
+                        modifier = Modifier
+                            .padding(vertical = 10.dp),
+                        fontSize = 23.sp,
+                    )
+                }
                 Text("${artistName.value}", style = MaterialTheme.typography.caption, fontSize = 15.sp)
             }
             Column(
@@ -314,7 +364,7 @@ private fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 30.dp, vertical = 220.dp),
+                .padding(horizontal = 30.dp, vertical = 210.dp),
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.CenterHorizontally
         ){
@@ -332,7 +382,7 @@ private fun OnboardingScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 30.dp, vertical = 210.dp),
+                .padding(horizontal = 30.dp, vertical = 203.dp),
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.Start
         ){
@@ -350,7 +400,7 @@ private fun OnboardingScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 30.dp, vertical = 210.dp),
+                .padding(horizontal = 30.dp, vertical = 203.dp),
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.End
         ){
@@ -396,6 +446,39 @@ private fun OnboardingScreen(
                     .padding(vertical = 110.dp, horizontal = 15.dp)
                     .size(60.dp)
             )
+        }
+
+        if(helpPopUp.value){
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    modifier = Modifier
+                        .size(width = 300.dp, height = 500.dp)
+                        .fillMaxSize(),
+                    backgroundColor = MaterialTheme.colors.primary,
+                ){
+                    Text(text = "How to Use:",
+                        style = MaterialTheme.typography.h6,
+                        fontSize = 23.sp,
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
+                    )
+                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 54.dp)){
+                        // Index image here
+                        Text("Shake Index - activate gestures")
+                    }
+                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 100.dp)){
+                        // Index image here
+                        Text("Index - Play/Pause Music")
+                    }
+                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 146.dp)){
+                        // Index image here
+                        Text("Index Swipe Left Right - Prev/Next Song")
+                    }
+                }
+            }
         }
 
         // EMI Inferences stuff here *****
@@ -450,7 +533,7 @@ private fun OnboardingScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        RealTimePortrait(gesture, eulerAngles)
+                        RealTimePortrait(gesture, eulerAngles)//, adjustedStrength)
                     }
                 }
             }
@@ -462,6 +545,7 @@ private fun OnboardingScreen(
 private fun RealTimePortrait(
     gesture: MutableState<String>,
     eulerStream: MutableState<EulerAngles>
+    //adjustedStrength: MutableState<Float>
     //waveProcessor: WaveProcessor
     /*eulerStream: Observable<EulerAngles>,
     waveProcessor: WaveProcessor,
@@ -478,7 +562,7 @@ private fun RealTimePortrait(
         Box(modifier = Modifier
             .weight(1f)
             .padding(bottom = 10.dp)) {
-            SignalDisplay(gesture)//waveProcessor = waveProcessor, ldaOutput, eventOutput, swipeOutput, rssiOutput)
+            SignalDisplay(gesture)//, adjustedStrength)//waveProcessor = waveProcessor, ldaOutput, eventOutput, swipeOutput, rssiOutput)
         }
         Box(modifier = Modifier
             .weight(0.8f)
@@ -547,6 +631,7 @@ private fun EulersDisplay(
 @Composable
 private fun SignalDisplay(
     gesture:  MutableState<String>
+    //adjustedStrength: MutableState<Float>
     //waveProcessor: WaveProcessor,
     /*ldaOutput: Observable<LdaVerdict>,
     eventOutput: Observable<HighlightedInference>,
@@ -558,6 +643,7 @@ private fun SignalDisplay(
         BoxWithConstraints{
             //println("reconstraint")
             // Is an import for com.pison.neohub.view.WaveView
+            // it.float will be the adc I think
             WaveView(
                 waveProcessor = waveProcessor,
                 width = maxWidth,
