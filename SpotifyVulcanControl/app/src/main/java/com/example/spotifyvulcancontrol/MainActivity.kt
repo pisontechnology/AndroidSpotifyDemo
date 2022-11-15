@@ -63,6 +63,12 @@ import com.example.spotifyvulcancontrol.util.subscribeAsState
 import com.example.spotifyvulcancontrol.view.WaveView
 import com.example.spotifyvulcancontrol.viewModel.WaveProcessor
 import com.spotify.protocol.types.LibraryState
+import org.apache.commons.math3.transform.DftNormalization
+import org.apache.commons.math3.transform.FastFourierTransformer
+import org.apache.commons.math3.transform.TransformType
+import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.roundToInt
 
 val defaultEulers: EulerAngles = object : EulerAngles {
     override val pitch: Float = 0.0f
@@ -81,6 +87,12 @@ var lastGesture = ""
 
 val waveProcessor: WaveProcessor = WaveProcessor()
 
+var lastStoredFrame: MutableList<Double> = MutableList<Double>(0) {0.0}
+var isInitialized = false
+var lastFrameTimestamp = -1.0
+var lastFrameTimeDiff = -1.0
+val fftBuffers = List(2) { MutableList(16) { 0.0 } }
+var fft = FastFourierTransformer(DftNormalization.UNITARY)
 
 class MainActivity : ComponentActivity() {
 
@@ -165,6 +177,35 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun appendInterpolatedPoints(deltaFrame: List<Double>) {
+    // Step 0 and Step 1 are the increments expected from the signal every 1ms.
+    fftBuffers.forEachIndexed { i, buffer ->
+        val last = buffer.last()
+        val step: Double = getAbsDiff(last, deltaFrame[i]) / lastFrameTimeDiff
+        interpolateAndAddToBuffer(
+            last,
+            lastFrameTimeDiff.roundToInt(),
+            step,
+            buffer
+        )
+    }
+}
+
+private fun getAbsDiff(last: Double, current: Double): Double {
+    return abs(current - last)
+}
+
+private fun interpolateAndAddToBuffer(
+    start_value: Double,
+    diffTime: Int,
+    step: Double,
+    fftBuffer: MutableList<Double>
+) {
+    for (i in 1 until diffTime) {
+        fftBuffer.add(start_value + i * floor(step))
+    }
+}
+
 //region Compose Functions
 
 @Composable
@@ -213,10 +254,9 @@ private fun OnboardingScreen(
                 gesture.value = Application.currentGesture
                 eulerAngles.value = Application.eulerAngles
 
+
                 adjustedStrength.value = Application.rawAdcAverage
-                //adjustedStrength.value = (adjustedStrength.value / 600f).coerceIn(0.03f..1f)
                 waveProcessor.setAmplitude(adjustedStrength.value)
-                //println(Application.rawAdcAverage)
 
                 spotifyAppRemote.playerApi.playerState.setResultCallback {
                     songPosition.value = it.playbackPosition.toFloat()

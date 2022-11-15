@@ -263,18 +263,17 @@ class DeviceService: Service(){
     //private val fHz = (0 until (16)).toMutableList()
 
     private fun processDenormalizePacket(it: DownlinkDenormalizedTransmissionPacketV4) {
-        //val lastFrame = lastStoredFrame ?: run{
-        //    lastStoredFrame = it.contents.adc?.adcRaw!!.toMutableList()
-        //}
 
-        val deltaFrame = it.contents.adc?.adcRaw?.toMutableList()?.zip(lastStoredFrame)?.map { (l, r) -> l -r }
-        lastStoredFrame = it.contents.adc?.adcRaw!!.toMutableList()
         val nowTime = it.timeStampMs
 
         if(!isInitialized){
+            lastStoredFrame = it.contents.adc?.adcRaw!!.toMutableList()
             lastFrameTimestamp = nowTime
             isInitialized = true
         }
+
+        val deltaFrame = it.contents.adc?.adcRaw?.toMutableList()?.zip(lastStoredFrame)?.map { (l, r) -> l -r }
+        lastStoredFrame = it.contents.adc?.adcRaw!!.toMutableList()
 
         lastFrameTimeDiff = nowTime - lastFrameTimestamp
         lastFrameTimestamp = nowTime
@@ -290,11 +289,8 @@ class DeviceService: Service(){
         }
 
         ys.get(1).maxOrNull()?.let {
-            println(it.toFloat())
             Application.rawAdcAverage = (it.toFloat() / 600f).coerceIn(0.03f..1f)
         }
-
-        //println(Application.rawAdcAverage)
     }
 
     private fun appendInterpolatedPoints(deltaFrame: List<Double>) {
