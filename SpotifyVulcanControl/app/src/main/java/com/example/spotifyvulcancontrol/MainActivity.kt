@@ -8,7 +8,6 @@ import android.os.*
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -18,11 +17,12 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons.Filled
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -31,44 +31,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.example.spotifyvulcancontrol.ui.theme.SpotifyVulcanControlTheme
-import com.spotify.android.appremote.api.ConnectionParams
-import com.spotify.android.appremote.api.Connector
-import com.example.spotifyvulcancontrol.Application.Companion.spotifyAppRemote
-import com.spotify.android.appremote.api.SpotifyAppRemote
-import android.os.Bundle
-import android.os.IBinder
-import android.os.Message
-import android.os.Messenger
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.createBitmap
-import com.pison.core.shared.imu.EulerAngles
-import io.ktor.http.*
-import java.util.*
-import com.badoo.reaktive.observable.Observable
-import com.badoo.reaktive.observable.observableOfEmpty
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import com.badoo.reaktive.observable.merge
-import com.badoo.reaktive.observable.observableOf
-import com.badoo.reaktive.scheduler.ioScheduler
-import com.badoo.reaktive.subject.behavior.BehaviorSubject
-import com.badoo.reaktive.subject.publish.PublishSubject
-import com.example.spotifyvulcancontrol.Application.Companion.sdk
-import com.example.spotifyvulcancontrol.util.subscribeAsState
+import com.example.spotifyvulcancontrol.Application.Companion.spotifyAppRemote
+import com.example.spotifyvulcancontrol.ui.theme.SpotifyVulcanControlTheme
 import com.example.spotifyvulcancontrol.view.WaveView
 import com.example.spotifyvulcancontrol.viewModel.WaveProcessor
-import com.spotify.protocol.types.LibraryState
-import org.apache.commons.math3.transform.DftNormalization
-import org.apache.commons.math3.transform.FastFourierTransformer
-import org.apache.commons.math3.transform.TransformType
-import kotlin.math.abs
-import kotlin.math.floor
-import kotlin.math.roundToInt
+import com.pison.core.shared.imu.EulerAngles
+import com.spotify.android.appremote.api.ConnectionParams
+import com.spotify.android.appremote.api.Connector
+import com.spotify.android.appremote.api.SpotifyAppRemote
+import io.ktor.http.*
+import java.util.*
 
 val defaultEulers: EulerAngles = object : EulerAngles {
     override val pitch: Float = 0.0f
@@ -87,12 +60,6 @@ var lastGesture = ""
 
 val waveProcessor: WaveProcessor = WaveProcessor()
 
-var lastStoredFrame: MutableList<Double> = MutableList<Double>(0) {0.0}
-var isInitialized = false
-var lastFrameTimestamp = -1.0
-var lastFrameTimeDiff = -1.0
-val fftBuffers = List(2) { MutableList(16) { 0.0 } }
-var fft = FastFourierTransformer(DftNormalization.UNITARY)
 
 class MainActivity : ComponentActivity() {
 
@@ -114,6 +81,12 @@ class MainActivity : ComponentActivity() {
 
         startService() // Set up background service
 
+        connectToSpotify()
+
+        Application.mMainActivity = this
+    }
+
+    public fun connectToSpotify(){
         // Set the connection parameters
         val connectionParams = ConnectionParams.Builder(clientId)
             .setRedirectUri(redirectUri)
@@ -174,35 +147,6 @@ class MainActivity : ComponentActivity() {
         override fun onServiceDisconnected(p0: ComponentName?) {
             TODO("Not yet implemented")
         }
-    }
-}
-
-private fun appendInterpolatedPoints(deltaFrame: List<Double>) {
-    // Step 0 and Step 1 are the increments expected from the signal every 1ms.
-    fftBuffers.forEachIndexed { i, buffer ->
-        val last = buffer.last()
-        val step: Double = getAbsDiff(last, deltaFrame[i]) / lastFrameTimeDiff
-        interpolateAndAddToBuffer(
-            last,
-            lastFrameTimeDiff.roundToInt(),
-            step,
-            buffer
-        )
-    }
-}
-
-private fun getAbsDiff(last: Double, current: Double): Double {
-    return abs(current - last)
-}
-
-private fun interpolateAndAddToBuffer(
-    start_value: Double,
-    diffTime: Int,
-    step: Double,
-    fftBuffer: MutableList<Double>
-) {
-    for (i in 1 until diffTime) {
-        fftBuffer.add(start_value + i * floor(step))
     }
 }
 
@@ -333,6 +277,28 @@ private fun OnboardingScreen(
             }
         }
 
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 120.dp, horizontal = 30.dp),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.End
+        ){
+            Text("", modifier = Modifier.padding(14.dp))
+            if(wakewordVal.value){
+                Image(painter = painterResource(id = R.drawable.wakeword_awake),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            else{
+                Image(painter = painterResource(id = R.drawable.wakeword_asleep),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+
         Column(modifier = Modifier
             .padding(horizontal = 20.dp, vertical = 10.dp)
             .fillMaxSize(),
@@ -342,7 +308,8 @@ private fun OnboardingScreen(
             IconButton(
                 onClick = { helpPopUp.value = !helpPopUp.value }
             ) {
-                Image(painter = painterResource(id = R.drawable.help_icon),
+                Image(
+                    painter = painterResource(id = R.drawable.help_icon),
                     contentDescription = null,
                     modifier = Modifier.size(23.dp),
                 )
@@ -364,7 +331,8 @@ private fun OnboardingScreen(
                 if(songName.value.length >= 22){
                     Box(modifier = Modifier.size(width = 305.dp, height = 52.dp)){
                         AutoScrollingLazyRow(list = (1..8).take(1)) {
-                            Text("${songName.value}    ", style = MaterialTheme.typography.h6,
+                            Text(
+                                "${songName.value}    ", style = MaterialTheme.typography.h6,
                                 modifier = Modifier
                                     .padding(vertical = 10.dp),
                                 fontSize = 23.sp,
@@ -373,7 +341,8 @@ private fun OnboardingScreen(
                     }
                 }
                 else{
-                    Text("${songName.value}", style = MaterialTheme.typography.h6,
+                    Text(
+                        "${songName.value}", style = MaterialTheme.typography.h6,
                         modifier = Modifier
                             .padding(vertical = 10.dp),
                         fontSize = 23.sp,
@@ -500,6 +469,11 @@ private fun OnboardingScreen(
                         .fillMaxSize(),
                     backgroundColor = MaterialTheme.colors.primary,
                 ){
+                    Text("HOW TO USE SCREEN COMING SOON",
+                        modifier = Modifier.padding(20.dp, vertical = 220.dp),
+                        fontSize = 26.sp
+                    )
+                    /*
                     Text(text = "How to Use:",
                         style = MaterialTheme.typography.h6,
                         fontSize = 23.sp,
@@ -516,7 +490,7 @@ private fun OnboardingScreen(
                     Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 146.dp)){
                         // Index image here
                         Text("Index Swipe Left Right - Prev/Next Song")
-                    }
+                    }*/
                 }
             }
         }
@@ -573,7 +547,7 @@ private fun OnboardingScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        RealTimePortrait(gesture, eulerAngles)//, adjustedStrength)
+                        RealTimePortrait(gesture, eulerAngles)
                     }
                 }
             }
@@ -697,38 +671,30 @@ private fun SignalDisplay(
 @Composable
 private fun VerdictHeader(
     gesture:  MutableState<String>
-    /*ldaOutput: Observable<LdaVerdict>,
-    eventOutput: Observable<HighlightedInference>,
-    swipeOutput: Observable<HighlightedInference>,
-    rssiOutput: Observable<RssiDisplay>*/
 ) {
     Column(
         Modifier
             .fillMaxWidth()
             .height(180.dp)) {
-        //val ldaVerdict by ldaOutput.subscribeAsState(initial = LdaVerdict("[No Verdict]", 0.0f))
-        //val event by eventOutput.subscribeAsState(initial = HighlightedInference("[No Event]", false))
-        //val swipe by swipeOutput.subscribeAsState(initial = HighlightedInference("[No Swipe]", false))
-        //val rssi by rssiOutput.subscribeAsState(initial = RssiDisplay("", false))
         Text(
-            text = gestureInputs(gesture.value), //ldaVerdict.name,
-            color = Color.White,
+            text = gestureInputs(gesture.value).first,
+            color = if(gestureInputs(gesture.value).second) Color.DarkGray else Color.White,
             fontSize = 24.sp,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 40.dp)
         )
         Text(
-            text = shakeInputs(gesture.value), //event.inference,
-            color = Color.White, //if (event.highlight) MaterialTheme.colors.primary else Color.DarkGray,
+            text = shakeInputs(gesture.value).first,
+            color = if(shakeInputs(gesture.value).second) Color.DarkGray else Color.White,
             fontSize = 24.sp,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 6.dp)
         )
         Text(
-            text = swipeInputs(gesture.value), //swipe.inference,
-            color = Color.White,//if (swipe.highlight) MaterialTheme.colors.primary else Color.DarkGray,
+            text = swipeInputs(gesture.value).first,
+            color = if(swipeInputs(gesture.value).second) Color.DarkGray else Color.White,
             fontSize = 24.sp,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
@@ -737,52 +703,64 @@ private fun VerdictHeader(
     }
 }
 
-fun gestureInputs(gesture: String): String{
+fun gestureInputs(gesture: String): Pair<String, Boolean>{
     when (gesture){
         "DEBOUNCE_LDA_INEH" -> { lastGesture = "INEH"
-            return "INEH" }
+            return "INEH" to false }
         "DEBOUNCE_LDA_FHEH" -> { lastGesture = "FHEH"
-            return "FHEH" }
+            return "FHEH" to false }
         "DEBOUNCE_LDA_TEH" -> { lastGesture = "TEH"
-            return "TEH" }
+            return "TEH" to false }
         else -> {
-            return lastGesture
+            return lastGesture to true
         }
     }
 }
 
-fun shakeInputs(gesture: String): String{
+fun shakeInputs(gesture: String): Pair<String, Boolean>{
     when (gesture){
         "SHAKE" -> { lastShake = gesture
-            return gesture }
+            return gesture to false }
         "SHAKE_N_INEH" -> { lastShake = gesture
-            return gesture }
+            return gesture to false }
         "SHAKE_N_FHEH" -> { lastShake = gesture
-            return gesture }
+            return gesture to false }
         "SHAKE_N_TEH" -> { lastShake = gesture
-            return gesture }
+            return gesture to false }
         else -> {
-            return lastShake
+            return lastShake to true
         }
     }
 }
 
-fun swipeInputs(gesture: String): String {
+fun swipeInputs(gesture: String): Pair<String, Boolean> {
     when (gesture){
         "INEH_SWIPE_RIGHT" -> { lastSwipe = gesture
-            return gesture }
+            return gesture to false }
         "INEH_SWIPE_LEFT" -> { lastSwipe = gesture
-            return gesture }
+            return gesture to false }
         "FHEH_SWIPE_RIGHT" -> { lastSwipe = gesture
-            return gesture }
+            return gesture to false }
         "FHEH_SWIPE_LEFT" -> { lastSwipe = gesture
-            return gesture }
+            return gesture to false }
         "TEH_SWIPE_RIGHT" -> { lastSwipe = gesture
-            return gesture }
+            return gesture to false }
         "TEH_SWIPE_LEFT" -> { lastSwipe = gesture
-            return gesture }
+            return gesture to false }
+        "INEH_SWIPE_UP" -> { lastSwipe = gesture
+            return gesture to false }
+        "INEH_SWIPE_DOWN" -> { lastSwipe = gesture
+            return gesture to false }
+        "FHEH_SWIPE_UP" -> { lastSwipe = gesture
+            return gesture to false }
+        "FHEH_SWIPE_DOWN" -> { lastSwipe = gesture
+            return gesture to false }
+        "TEH_SWIPE_UP" -> { lastSwipe = gesture
+            return gesture to false }
+        "TEH_SWIPE_DOWN" -> { lastSwipe = gesture
+            return gesture to false }
         else -> {
-            return lastSwipe
+            return lastSwipe to true
         }
     }
 }

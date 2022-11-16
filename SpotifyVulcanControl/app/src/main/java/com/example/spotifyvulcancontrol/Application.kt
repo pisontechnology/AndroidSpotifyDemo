@@ -23,6 +23,7 @@ class Application : Application() {
             override val yaw: Float = 0.0f
         }
         var rawAdcAverage = 0f
+        var mMainActivity: MainActivity = MainActivity()
     }
 
     override fun onCreate() {

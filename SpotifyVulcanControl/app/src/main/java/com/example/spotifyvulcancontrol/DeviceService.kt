@@ -103,6 +103,7 @@ class DeviceService: Service(){
     //private var isShuffled = false
     var swipedUp = false
     var swipedDown = false
+    var connectingToSpotify = false
 
     companion object {
         private const val ACTION_START_SERVICE = "action_start_service"
@@ -360,159 +361,51 @@ class DeviceService: Service(){
         val gestureDisposable =
             pisonRemoteDevice.monitorFrameTags().flatMapIterable { it }.observeOn(mainScheduler).subscribe(
                 onNext = { gesture ->
-                    //Log.d(TAG, "$GESTURES_TAG $gesture")
-                    Application.currentGesture = gesture
-                    //print(gesture)
-                    if (gesture == "SHAKE_N_INEH"){
-                        Application.wakeword = !Application.wakeword
-                        if(Application.wakeword){
-                            println("WOKE UP")
-                            debounce = true
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_UnlockLock,
-                                NUMBER_DEFAULT_Unlock
-                            )
-                        }else{
-                            println("NAP TIME")
-                            debounce = false
-                            isIndexed = false
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_UnlockLock,
-                                NUMBER_DEFAULT_Lock
-                            )
+                    if(Application.spotifyAppRemote != null) {
+                        connectingToSpotify = false
+                        //Log.d(TAG, "$GESTURES_TAG $gesture")
+                        Application.currentGesture = gesture
+                        //print(gesture)
+                        if (gesture == "SHAKE_N_INEH") {
+                            Application.wakeword = !Application.wakeword
+                            if (Application.wakeword) {
+                                println("WOKE UP")
+                                debounce = true
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_UnlockLock,
+                                    NUMBER_DEFAULT_Unlock
+                                )
+                            } else {
+                                println("NAP TIME")
+                                debounce = false
+                                isIndexed = false
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_UnlockLock,
+                                    NUMBER_DEFAULT_Lock
+                                )
+                            }
                         }
-                    }
-                    if (Application.wakeword) {
-                        if(gesture == "DEBOUNCE_LDA_INEH"){
-                            isIndexed = true // trigger user is Indexing at the moment
-                        }
-
-                        if(gesture == "DEBOUNCE_LDA_TEH" && isUpward && !debounce){
-                            // using imu data with thumb can figure out its a thumbs up
-                            isIndexed = false
-                            debounce = true
-                            println("Liked Song")
-                            // Adding song to liked songs
-                            Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                if(it.track.name != null){
-                                    Application.spotifyAppRemote.userApi.addToLibrary(it.track.uri)
-                                }
+                        if (Application.wakeword) {
+                            if (gesture == "DEBOUNCE_LDA_INEH") {
+                                isIndexed = true // trigger user is Indexing at the moment
                             }
 
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_BASIC,
-                                NUMBER_DEFAULT_BASIC
-                            )
-                        }
-                        else if(gesture == "DEBOUNCE_LDA_TEH" && isDownward && !debounce){
-                            // using imu data with thumb can figure out its a thumbs down
-                            isIndexed = false
-                            debounce = true
-                            println("Unliked Song")
-                            // removing song from liked songs
-                            Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                if(it.track.name != null){
-                                    Application.spotifyAppRemote.userApi.removeFromLibrary(it.track.uri)
-                                }
-                            }
-
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_BASIC,
-                                NUMBER_DEFAULT_BASIC
-                            )
-                        }
-                        else if(gesture == "INEH_SWIPE_RIGHT"){
-                            // skip to next song
-                            isIndexed = false
-                            debounce = true
-                            println("Play Next Song")
-                            Application.spotifyAppRemote.playerApi.skipNext()
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_BASIC,
-                                NUMBER_DEFAULT_BASIC
-                            )
-                        }
-                        else if(gesture == "INEH_SWIPE_LEFT"){
-                            // skip to previous song
-                            isIndexed = false
-                            debounce = true
-                            println("Play Prev Song")
-                            Application.spotifyAppRemote.playerApi.skipPrevious()
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_BASIC,
-                                NUMBER_DEFAULT_BASIC
-                            )
-                        }
-                        else if(gesture == "INEH_SWIPE_UP"){
-                            // Swipe up will increase volume set amount
-                            debounce = true
-                            swipedUp = true // trigger hold functionality
-                            println("Increase Volume")
-                            audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_PLAY_SOUND)
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_BASIC,
-                                NUMBER_DEFAULT_BASIC
-                            )
-                        }
-                        else if(gesture == "INEH_SWIPE_DOWN"){
-                            // Swipe down will decrease volume set amount
-                            debounce = true
-                            swipedDown = true // trigger hold functionality
-                            println("Decrease Volume")
-                            audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-                            sendHaptic(
-                                HAPTIC_BURST,
-                                DURATION_MS_DEFAULT,
-                                INTENSITY_BASIC,
-                                NUMBER_DEFAULT_BASIC
-                            )
-                        }
-                        /*else if(gesture == "DEBOUNCE_LDA_FHEH"){
-                            isIndexed = false
-                            debounce = true
-                            println("Shuffle Playlist")
-                            Application.spotifyAppRemote.playerApi.toggleShuffle()
-                        }*/ // TODO: Possible way to add shuffling (just find a way to get current Shuffle State)
-                        else if(gesture != "DEBOUNCE_LDA_INEH" && isIndexed &&
-                            !debounce && !swipedDown && !swipedUp){
-                            // User closed hand without preforming any other gesture
-                            isIndexed = false
-                            //println("CLICKED")
-
-                            // Check if spotify is currently playing or paused and trigger opposite
-                            Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                //Log.d(TAG, "isPaused = " + it.isPaused)
-                                if(it.isPaused){
-                                    isPlaying = false
-                                }
-                                else{
-                                    isPlaying = true
-                                }
-                            }
-
-                            // Call oposite based off of previous information
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                if(!isPlaying){
-                                    println("Play Song")
-                                    Application.spotifyAppRemote.playerApi.resume()
-                                }
-                                else{
-                                    println("Pause Song")
-                                    Application.spotifyAppRemote.playerApi.pause()
+                            if (gesture == "DEBOUNCE_LDA_TEH" && isUpward && !debounce ||
+                                gesture == "DEBOUNCE_LDA_FHEH" && isUpward && !debounce
+                            ) {
+                                // using imu data with thumb can figure out its a thumbs up
+                                isIndexed = false
+                                debounce = true
+                                println("Liked Song")
+                                // Adding song to liked songs
+                                Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                    if (it.track.name != null) {
+                                        Application.spotifyAppRemote.userApi.addToLibrary(it.track.uri)
+                                    }
                                 }
 
                                 sendHaptic(
@@ -521,33 +414,158 @@ class DeviceService: Service(){
                                     INTENSITY_BASIC,
                                     NUMBER_DEFAULT_BASIC
                                 )
-                            }, 70)
-                        }
-                        else if(gesture == "DEBOUNCE_LDA_INEH" && swipedUp ||
-                            gesture == "DEBOUNCE_LDA_INEH" && swipedDown){
-                            mHandler.post(object: Runnable{
-                                override fun run() {
-                                    mHandler.postDelayed({
-                                        if(swipedUp){
-                                            println("Steady increase volume")
-                                            audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-                                        }
-
-                                        if(swipedDown){
-                                            audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-                                        }
-                                    }, 500)
+                            } else if (gesture == "DEBOUNCE_LDA_TEH" && isDownward && !debounce ||
+                                gesture == "DEBOUNCE_LDA_FHEH" && isDownward && !debounce
+                            ) {
+                                // using imu data with thumb can figure out its a thumbs down
+                                isIndexed = false
+                                debounce = true
+                                println("Unliked Song")
+                                // removing song from liked songs
+                                Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                    if (it.track.name != null) {
+                                        Application.spotifyAppRemote.userApi.removeFromLibrary(it.track.uri)
+                                    }
                                 }
-                            })
+
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_BASIC,
+                                    NUMBER_DEFAULT_BASIC
+                                )
+                            } else if (gesture == "INEH_SWIPE_RIGHT") {
+                                // skip to next song
+                                isIndexed = false
+                                debounce = true
+                                println("Play Next Song")
+                                Application.spotifyAppRemote.playerApi.skipNext()
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_BASIC,
+                                    NUMBER_DEFAULT_BASIC
+                                )
+                            } else if (gesture == "INEH_SWIPE_LEFT") {
+                                // skip to previous song
+                                isIndexed = false
+                                debounce = true
+                                println("Play Prev Song")
+                                Application.spotifyAppRemote.playerApi.skipPrevious()
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_BASIC,
+                                    NUMBER_DEFAULT_BASIC
+                                )
+                            } else if (gesture == "INEH_SWIPE_UP") {
+                                // Swipe up will increase volume set amount
+                                debounce = true
+                                swipedUp = true // trigger hold functionality
+                                println("Increase Volume")
+                                audioManager.adjustVolume(
+                                    AudioManager.ADJUST_RAISE,
+                                    AudioManager.FLAG_PLAY_SOUND
+                                )
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_BASIC,
+                                    NUMBER_DEFAULT_BASIC
+                                )
+                            } else if (gesture == "INEH_SWIPE_DOWN") {
+                                // Swipe down will decrease volume set amount
+                                debounce = true
+                                swipedDown = true // trigger hold functionality
+                                println("Decrease Volume")
+                                audioManager.adjustVolume(
+                                    AudioManager.ADJUST_LOWER,
+                                    AudioManager.FLAG_SHOW_UI
+                                )
+                                sendHaptic(
+                                    HAPTIC_BURST,
+                                    DURATION_MS_DEFAULT,
+                                    INTENSITY_BASIC,
+                                    NUMBER_DEFAULT_BASIC
+                                )
+                            } else if (gesture == "SHAKE_N_FHEH") {
+                                isIndexed = false
+                                debounce = true
+                                println("Shuffle Playlist")
+                                Application.spotifyAppRemote.playerApi.toggleShuffle()
+                            } // TODO: Possible way to add shuffling (just find a way to get current Shuffle State)
+                            else if (gesture != "DEBOUNCE_LDA_INEH" && isIndexed &&
+                                !debounce && !swipedDown && !swipedUp
+                            ) {
+                                // User closed hand without preforming any other gesture
+                                isIndexed = false
+                                //println("CLICKED")
+                                // Check if spotify is currently playing or paused and trigger opposite
+                                Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                    //Log.d(TAG, "isPaused = " + it.isPaused)
+                                    if (it.isPaused) {
+                                        isPlaying = false
+                                    } else {
+                                        isPlaying = true
+                                    }
+                                }
+
+                                // Call oposite based off of previous information
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    if (!isPlaying) {
+                                        println("Play Song")
+                                        Application.spotifyAppRemote.playerApi.resume()
+                                    } else {
+                                        println("Pause Song")
+                                        Application.spotifyAppRemote.playerApi.pause()
+                                    }
+
+                                    sendHaptic(
+                                        HAPTIC_BURST,
+                                        DURATION_MS_DEFAULT,
+                                        INTENSITY_BASIC,
+                                        NUMBER_DEFAULT_BASIC
+                                    )
+                                }, 70)
+                            } else if (gesture == "DEBOUNCE_LDA_INEH" && swipedUp ||
+                                gesture == "DEBOUNCE_LDA_INEH" && swipedDown
+                            ) {
+                                mHandler.post(object : Runnable {
+                                    override fun run() {
+                                        mHandler.postDelayed({
+                                            if (swipedUp) {
+                                                println("Steady increase volume")
+                                                audioManager.adjustVolume(
+                                                    AudioManager.ADJUST_RAISE,
+                                                    AudioManager.FLAG_SHOW_UI
+                                                )
+                                            }
+
+                                            if (swipedDown) {
+                                                audioManager.adjustVolume(
+                                                    AudioManager.ADJUST_LOWER,
+                                                    AudioManager.FLAG_SHOW_UI
+                                                )
+                                            }
+                                        }, 500)
+                                    }
+                                })
+                            } else if (gesture == "DEBOUNCE_LDA_INACTIVE" && debounce) {
+                                // when hand is at rest reset everything
+                                debounce = false
+                                isIndexed = false
+                                swipedDown = false
+                                swipedUp = false
+                            }
+                            //MainActivity().updateUI()
                         }
-                        else if(gesture == "DEBOUNCE_LDA_INACTIVE" && debounce){
-                            // when hand is at rest reset everything
-                            debounce = false
-                            isIndexed = false
-                            swipedDown = false
-                            swipedUp = false
+                    }
+                    else{
+                        if(!connectingToSpotify)
+                        {
+                            connectingToSpotify = true
+                            Application.mMainActivity.connectToSpotify()
                         }
-                        //MainActivity().updateUI()
                     }
                 },
                 onError = { throwable ->
