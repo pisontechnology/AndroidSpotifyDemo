@@ -557,12 +557,13 @@ class DeviceService: Service(){
                                 swipedDown = false
                                 swipedUp = false
                             }
-                            //MainActivity().updateUI()
                         }
                     }
                     else{
+                        // Attempt to reconnect to spotify
                         if(!connectingToSpotify)
                         {
+                            println("RECONNECTING TO SPOTIFY")
                             connectingToSpotify = true
                             Application.mMainActivity.connectToSpotify()
                         }
