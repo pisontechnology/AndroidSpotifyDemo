@@ -12,6 +12,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons.Filled
@@ -124,7 +125,14 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         unbindService(connection)
+        //stopService(DeviceService.getStartIntent(this))
     }
+
+    @OptIn(ExperimentalStdlibApi::class)
+    fun stopForgroundService(){
+        stopService(DeviceService.getStartIntent(this))
+    }
+
 
     @OptIn(ExperimentalStdlibApi::class)
     private fun startService(){
@@ -171,6 +179,7 @@ private fun OnboardingScreen(
     val songLiked = remember { mutableStateOf(false)}
     val helpPopUp = remember { mutableStateOf(false)}
     val adjustedStrength = remember{ mutableStateOf(0f)}
+    val isShuffling = remember{ mutableStateOf(false)}
 
     var positionMin: Long = 0
     var positionSec: Long = 0
@@ -193,11 +202,10 @@ private fun OnboardingScreen(
     Handler(Looper.getMainLooper()).post(object: Runnable{
         override fun run() {
             if(spotifyConnected){
-                //println("Hack Update Called")
+                //println("Hacky Update Called")
                 wakewordVal.value = Application.wakeword
                 gesture.value = Application.currentGesture
                 eulerAngles.value = Application.eulerAngles
-
 
                 adjustedStrength.value = Application.rawAdcAverage
                 waveProcessor.setAmplitude(adjustedStrength.value)
@@ -220,7 +228,10 @@ private fun OnboardingScreen(
             isPlaying.value = it.isPaused
             songMax.value = it.track.duration.toFloat()
             songPosition.value = it.playbackPosition.toFloat()
+            //println("Shuffle state: " + it.playbackOptions.isShuffling)
+            //isShuffling.value = Application.isShuffled
 
+            //println(it.playbackOptions.isShuffling)
             spotifyAppRemote.imagesApi.getImage(it.track.imageUri).setResultCallback {
                 songImage.value = it
             }
@@ -277,27 +288,29 @@ private fun OnboardingScreen(
             }
         }
 
+        // ************ Shuffle UI ***********
+        /*
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 120.dp, horizontal = 30.dp),
+                .padding(vertical = 125.dp, horizontal = 30.dp),
             verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.End
+            horizontalAlignment = Alignment.Start
         ){
             Text("", modifier = Modifier.padding(14.dp))
-            if(wakewordVal.value){
-                Image(painter = painterResource(id = R.drawable.wakeword_awake),
+            if(isShuffling.value){
+                Image(painter = painterResource(id = R.drawable.shuffle_selected),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
             else{
-                Image(painter = painterResource(id = R.drawable.wakeword_asleep),
+                Image(painter = painterResource(id = R.drawable.shuffle_unslected),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
-        }
+        }*/
 
         Column(modifier = Modifier
             .padding(horizontal = 20.dp, vertical = 10.dp)
@@ -310,6 +323,26 @@ private fun OnboardingScreen(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.help_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(23.dp),
+                )
+            }
+        }
+
+        Column(modifier = Modifier
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .fillMaxSize(),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.Start
+        ) {
+            IconButton(
+                onClick = {
+                    Application.mMainActivity.stopForgroundService()
+                    System.exit(0)
+                }
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.cancel_icon),
                     contentDescription = null,
                     modifier = Modifier.size(23.dp),
                 )
@@ -456,45 +489,7 @@ private fun OnboardingScreen(
                     .size(60.dp)
             )
         }
-
-        if(helpPopUp.value){
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Card(
-                    modifier = Modifier
-                        .size(width = 300.dp, height = 500.dp)
-                        .fillMaxSize(),
-                    backgroundColor = MaterialTheme.colors.primary,
-                ){
-                    Text("HOW TO USE SCREEN COMING SOON",
-                        modifier = Modifier.padding(20.dp, vertical = 220.dp),
-                        fontSize = 26.sp
-                    )
-                    /*
-                    Text(text = "How to Use:",
-                        style = MaterialTheme.typography.h6,
-                        fontSize = 23.sp,
-                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
-                    )
-                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 54.dp)){
-                        // Index image here
-                        Text("Shake Index - activate gestures")
-                    }
-                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 100.dp)){
-                        // Index image here
-                        Text("Index - Play/Pause Music")
-                    }
-                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 146.dp)){
-                        // Index image here
-                        Text("Index Swipe Left Right - Prev/Next Song")
-                    }*/
-                }
-            }
-        }
-
+        
         // EMI Inferences stuff here *****
 
         Column(
@@ -552,6 +547,33 @@ private fun OnboardingScreen(
                 }
             }
         }
+
+        if(helpPopUp.value){
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(modifier = Modifier
+                    .background(color = MaterialTheme.colors.primary)
+                    .size(width = 300.dp, height = 330.dp)
+                ){
+                    Column() {
+                        Text(text = "How to Use: *TEMP*",
+                            style = MaterialTheme.typography.h6,
+                            fontSize = 23.sp,
+                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
+                        )
+                        Text("Shake Index - activate/deactivate gestures", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                        Text("Index - Play/Pause Music", modifier = Modifier.padding(horizontal = 13.dp, vertical = 5.dp))
+                        Text("Index Swipe Left/Right - Prev/Next Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                        Text("Index Swipe Up/Down - Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                        Text("Index Swipe Up/Down Hold - Continuous Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                        Text("Thumb Up - Like/UnLike Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -561,13 +583,6 @@ private fun RealTimePortrait(
     eulerStream: MutableState<EulerAngles>
     //adjustedStrength: MutableState<Float>
     //waveProcessor: WaveProcessor
-    /*eulerStream: Observable<EulerAngles>,
-    waveProcessor: WaveProcessor,
-    ldaOutput: Observable<LdaVerdict>,
-    eventOutput: Observable<HighlightedInference>,
-    swipeOutput: Observable<HighlightedInference>,
-    sqiOutput: Observable<SqiErrorVerdict>,
-    rssiOutput: Observable<RssiDisplay>*/
 ) {
     Column(
         //modifier = Modifier
@@ -647,10 +662,6 @@ private fun SignalDisplay(
     gesture:  MutableState<String>
     //adjustedStrength: MutableState<Float>
     //waveProcessor: WaveProcessor,
-    /*ldaOutput: Observable<LdaVerdict>,
-    eventOutput: Observable<HighlightedInference>,
-    swipeOutput: Observable<HighlightedInference>,
-    rssiOutput: Observable<RssiDisplay>*/
 ) {
     Column {
         VerdictHeader(gesture)//ldaOutput = ldaOutput, eventOutput = eventOutput, swipeOutput = swipeOutput, rssiOutput = rssiOutput)

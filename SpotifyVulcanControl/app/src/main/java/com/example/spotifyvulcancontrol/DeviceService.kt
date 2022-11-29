@@ -47,6 +47,7 @@ import java.util.concurrent.Executor
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import com.spotify.protocol.types.Shuffle
 
 const val SERVER_INITIALIZE_COMMAND = 1
 private const val TAG = "DEVICE SERVICES"
@@ -83,10 +84,6 @@ class DeviceService: Service(){
 
     val mHandler = Handler(Looper.getMainLooper())
 
-//    private val _gestureReceived = MutableLiveData<String>()
-//    val gestureReceived: LiveData<String>
-//        get() = _gestureReceived
-
     private val _eulerReceived = MutableLiveData<EulerAngles>()
     val eulerReceived: LiveData<EulerAngles>
         get() = _eulerReceived
@@ -95,12 +92,11 @@ class DeviceService: Service(){
     val errorReceived: LiveData<Throwable>
         get() = _errorReceived
 
-    private var isPlaying = false
+    private var armAtNinede = false
     private var isUpward = false
     private var isDownward = false
     private var isIndexed = false
     private var debounce = false
-    //private var isShuffled = false
     var swipedUp = false
     var swipedDown = false
     var connectingToSpotify = false
@@ -261,7 +257,6 @@ class DeviceService: Service(){
     private var lastFrameTimeDiff = -1.0
     private val fftBuffers = List(2) { MutableList(16) { 0.0 } }
     private var fft = FastFourierTransformer(DftNormalization.UNITARY)
-    //private val fHz = (0 until (16)).toMutableList()
 
     private fun processDenormalizePacket(it: DownlinkDenormalizedTransmissionPacketV4) {
 
@@ -349,6 +344,14 @@ class DeviceService: Service(){
                             isDownward = true
                         }
                     }
+
+                    if(imu.acceleration.y > 8.0f){
+                        armAtNinede = true
+                    }
+                    else{
+                        armAtNinede = false
+                    }
+
                 },
                 onError = { throwable ->
                     Log.d("IMU STATES", "ERROR: $throwable")
@@ -400,11 +403,19 @@ class DeviceService: Service(){
                                 // using imu data with thumb can figure out its a thumbs up
                                 isIndexed = false
                                 debounce = true
+
                                 println("Liked Song")
                                 // Adding song to liked songs
                                 Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                     if (it.track.name != null) {
-                                        Application.spotifyAppRemote.userApi.addToLibrary(it.track.uri)
+                                        Application.spotifyAppRemote.userApi.getLibraryState(it.track.uri).setResultCallback {
+                                            if(it.isAdded){
+                                                Application.spotifyAppRemote.userApi.removeFromLibrary(it.uri)
+                                            }
+                                            else{
+                                                Application.spotifyAppRemote.userApi.addToLibrary(it.uri)
+                                            }
+                                        }
                                     }
                                 }
 
@@ -422,11 +433,12 @@ class DeviceService: Service(){
                                 debounce = true
                                 println("Unliked Song")
                                 // removing song from liked songs
+                                /*
                                 Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                     if (it.track.name != null) {
                                         Application.spotifyAppRemote.userApi.removeFromLibrary(it.track.uri)
                                     }
-                                }
+                                }*/
 
                                 sendHaptic(
                                     HAPTIC_BURST,
@@ -488,36 +500,40 @@ class DeviceService: Service(){
                                     INTENSITY_BASIC,
                                     NUMBER_DEFAULT_BASIC
                                 )
-                            } else if (gesture == "SHAKE_N_FHEH") {
-                                isIndexed = false
-                                debounce = true
-                                println("Shuffle Playlist")
-                                Application.spotifyAppRemote.playerApi.toggleShuffle()
-                            } // TODO: Possible way to add shuffling (just find a way to get current Shuffle State)
+                            }
                             else if (gesture != "DEBOUNCE_LDA_INEH" && isIndexed &&
                                 !debounce && !swipedDown && !swipedUp
                             ) {
                                 // User closed hand without preforming any other gesture
                                 isIndexed = false
                                 //println("CLICKED")
-                                // Check if spotify is currently playing or paused and trigger opposite
-                                Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                    //Log.d(TAG, "isPaused = " + it.isPaused)
-                                    if (it.isPaused) {
-                                        isPlaying = false
-                                    } else {
-                                        isPlaying = true
+                                if(!armAtNinede){
+                                    // Check if spotify is currently playing or paused and trigger opposite
+                                    Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                        if (it.isPaused) {
+                                            println("Play Song")
+                                            Application.spotifyAppRemote.playerApi.resume()
+                                        } else {
+                                            println("Pause Song")
+                                            Application.spotifyAppRemote.playerApi.pause()
+                                        }
+
+                                        sendHaptic(
+                                            HAPTIC_BURST,
+                                            DURATION_MS_DEFAULT,
+                                            INTENSITY_BASIC,
+                                            NUMBER_DEFAULT_BASIC
+                                        )
                                     }
                                 }
+                                else{
+                                    println("toggle shuffle")
+                                    Application.spotifyAppRemote.playerApi.toggleShuffle()
 
-                                // Call oposite based off of previous information
-                                Handler(Looper.getMainLooper()).postDelayed({
-                                    if (!isPlaying) {
-                                        println("Play Song")
-                                        Application.spotifyAppRemote.playerApi.resume()
-                                    } else {
-                                        println("Pause Song")
-                                        Application.spotifyAppRemote.playerApi.pause()
+                                    Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                        Handler(Looper.getMainLooper()).postDelayed({
+                                            println(it.playbackOptions.isShuffling)
+                                        }, 5000)
                                     }
 
                                     sendHaptic(
@@ -526,7 +542,21 @@ class DeviceService: Service(){
                                         INTENSITY_BASIC,
                                         NUMBER_DEFAULT_BASIC
                                     )
-                                }, 70)
+                                }
+
+                                // Call oposite based off of previous information
+                                /*Handler(Looper.getMainLooper()).postDelayed({
+                                    println(it.playbackOptions.isShuffling)
+
+                                    if (!isPlaying) {
+                                        println("Play Song")
+                                        Application.spotifyAppRemote.playerApi.resume()
+                                    } else {
+                                        println("Pause Song")
+                                        Application.spotifyAppRemote.playerApi.pause()
+                                    }
+                                }, 4000)*/
+
                             } else if (gesture == "DEBOUNCE_LDA_INEH" && swipedUp ||
                                 gesture == "DEBOUNCE_LDA_INEH" && swipedDown
                             ) {
@@ -550,14 +580,14 @@ class DeviceService: Service(){
                                         }, 500)
                                     }
                                 })
-                            } else if (gesture == "DEBOUNCE_LDA_INACTIVE" && debounce) {
+                            }
+                            else if (gesture == "DEBOUNCE_LDA_INACTIVE" && debounce) {
                                 // when hand is at rest reset everything
                                 debounce = false
                                 isIndexed = false
                                 swipedDown = false
                                 swipedUp = false
                             }
-                            //MainActivity().updateUI()
                         }
                     }
                     else{

@@ -12,7 +12,6 @@ import io.ktor.http.cio.websocket.*
 
 class Application : Application() {
     companion object {
-        //lateinit var deviceManager: DeviceManager<PisonServerDeviceFrame<FrameType>>
         lateinit var sdk: PisonRemoteServer
         lateinit var spotifyAppRemote: SpotifyAppRemote
         var wakeword = false
