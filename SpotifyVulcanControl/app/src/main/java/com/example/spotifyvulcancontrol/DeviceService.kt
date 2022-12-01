@@ -425,7 +425,7 @@ class DeviceService: Service(){
                                     INTENSITY_BASIC,
                                     NUMBER_DEFAULT_BASIC
                                 )
-                            } else if (gesture == "DEBOUNCE_LDA_TEH" && isDownward && !debounce ||
+                            } /*else if (gesture == "DEBOUNCE_LDA_TEH" && isDownward && !debounce ||
                                 gesture == "DEBOUNCE_LDA_FHEH" && isDownward && !debounce
                             ) {
                                 // using imu data with thumb can figure out its a thumbs down
@@ -446,7 +446,8 @@ class DeviceService: Service(){
                                     INTENSITY_BASIC,
                                     NUMBER_DEFAULT_BASIC
                                 )
-                            } else if (gesture == "INEH_SWIPE_RIGHT") {
+                            } */
+                            else if (gesture == "INEH_SWIPE_RIGHT") {
                                 // skip to next song
                                 isIndexed = false
                                 debounce = true
@@ -529,6 +530,9 @@ class DeviceService: Service(){
                                 else{
                                     println("toggle shuffle")
                                     Application.spotifyAppRemote.playerApi.toggleShuffle()
+                                    Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                        it.playbackOptions.isShuffling
+                                    }
 
                                     Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                         Handler(Looper.getMainLooper()).postDelayed({
@@ -543,20 +547,6 @@ class DeviceService: Service(){
                                         NUMBER_DEFAULT_BASIC
                                     )
                                 }
-
-                                // Call oposite based off of previous information
-                                /*Handler(Looper.getMainLooper()).postDelayed({
-                                    println(it.playbackOptions.isShuffling)
-
-                                    if (!isPlaying) {
-                                        println("Play Song")
-                                        Application.spotifyAppRemote.playerApi.resume()
-                                    } else {
-                                        println("Pause Song")
-                                        Application.spotifyAppRemote.playerApi.pause()
-                                    }
-                                }, 4000)*/
-
                             } else if (gesture == "DEBOUNCE_LDA_INEH" && swipedUp ||
                                 gesture == "DEBOUNCE_LDA_INEH" && swipedDown
                             ) {
@@ -593,6 +583,7 @@ class DeviceService: Service(){
                     else{
                         if(!connectingToSpotify)
                         {
+                            println("Reconnecting to spotify")
                             connectingToSpotify = true
                             Application.mMainActivity.connectToSpotify()
                         }

@@ -180,6 +180,7 @@ private fun OnboardingScreen(
     val helpPopUp = remember { mutableStateOf(false)}
     val adjustedStrength = remember{ mutableStateOf(0f)}
     val isShuffling = remember{ mutableStateOf(false)}
+    val quitPopUp = remember{ mutableStateOf(false)}
 
     var positionMin: Long = 0
     var positionSec: Long = 0
@@ -337,8 +338,8 @@ private fun OnboardingScreen(
         ) {
             IconButton(
                 onClick = {
-                    Application.mMainActivity.stopForgroundService()
-                    System.exit(0)
+                    //QuitPopup() System.exit(0)
+                    quitPopUp.value = !quitPopUp.value
                 }
             ) {
                 Image(
@@ -509,7 +510,8 @@ private fun OnboardingScreen(
                         Text(
                             "Inferences and EMI",
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                     Column(
@@ -547,7 +549,13 @@ private fun OnboardingScreen(
                 }
             }
         }
+        
+        // POP UP HERE **********
 
+        if(quitPopUp.value){
+            QuitPopup(quitPopUp)
+        }
+        
         if(helpPopUp.value){
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -571,6 +579,46 @@ private fun OnboardingScreen(
                         Text("Index Swipe Up/Down Hold - Continuous Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
                         Text("Thumb Up - Like/UnLike Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuitPopup(quitPopUp: MutableState<Boolean>){
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Card(backgroundColor = MaterialTheme.colors.primary,
+            modifier = Modifier.size(height = 160.dp, width = 330.dp)
+        ){
+            Column(verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(vertical = 20.dp, horizontal = 20.dp)) {
+                Text("Shut down Vulcan Spotify?", style = MaterialTheme.typography.h6,
+                    fontSize = 18.sp,
+                color = Color.White)
+            }
+            Row(verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.padding(vertical = 23.dp, horizontal = 15.dp)){
+                Text("", modifier = Modifier.padding(horizontal = 11.5.dp))
+                Button(
+                    onClick = { System.exit(0) },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    modifier = Modifier.size(width = 100.dp, height = 40.dp)
+                ) {
+                    Text("Yes", color = Color.Black)
+                }
+                Text("", modifier = Modifier.padding(horizontal = 25.dp))
+                Button(
+                    onClick = { quitPopUp.value = false },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    modifier = Modifier.size(width = 100.dp, height = 40.dp)
+                ) {
+                    Text("No", color = Color.Black)
                 }
             }
         }
