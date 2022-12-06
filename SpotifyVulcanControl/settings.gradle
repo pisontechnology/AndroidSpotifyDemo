@@ -13,6 +13,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         mavenLocal() // added local for some reason
+        maven { url "https://jitpack.io" }
         maven {
             name = "GitHubPackages"
             url = "https://maven.pkg.github.com/pisontechnology/thanos" // dont need url stuff here

@@ -48,6 +48,7 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import com.spotify.protocol.types.Shuffle
+import kotlinx.coroutines.delay
 
 const val SERVER_INITIALIZE_COMMAND = 1
 private const val TAG = "DEVICE SERVICES"
@@ -80,8 +81,6 @@ class DeviceService: Service(){
 
     lateinit var audioManager: AudioManager
 
-    lateinit var runnable: Runnable
-
     val mHandler = Handler(Looper.getMainLooper())
 
     private val _eulerReceived = MutableLiveData<EulerAngles>()
@@ -100,6 +99,15 @@ class DeviceService: Service(){
     var swipedUp = false
     var swipedDown = false
     var connectingToSpotify = false
+    private var swiped = false
+
+    // EMI Screen variables
+    private var lastStoredFrame: MutableList<Double> = MutableList<Double>(0) {0.0}
+    private var isInitialized = false
+    private var lastFrameTimestamp = -1.0
+    private var lastFrameTimeDiff = -1.0
+    private val fftBuffers = List(2) { MutableList(16) { 0.0 } }
+    private var fft = FastFourierTransformer(DftNormalization.UNITARY)
 
     companion object {
         private const val ACTION_START_SERVICE = "action_start_service"
@@ -178,7 +186,6 @@ class DeviceService: Service(){
         // if so will gradually change volume based off of that information
         mHandler.post(object: Runnable{
             override fun run() {
-                //println("am I called?")
                 //println(swipedUp)
                 if(swipedUp){
                     println("Steady increase volume")
@@ -251,12 +258,7 @@ class DeviceService: Service(){
         masterDisposable.add(rawDataDisposable)
     }
 
-    private var lastStoredFrame: MutableList<Double> = MutableList<Double>(0) {0.0}
-    private var isInitialized = false
-    private var lastFrameTimestamp = -1.0
-    private var lastFrameTimeDiff = -1.0
-    private val fftBuffers = List(2) { MutableList(16) { 0.0 } }
-    private var fft = FastFourierTransformer(DftNormalization.UNITARY)
+    //region EMI Display data
 
     private fun processDenormalizePacket(it: DownlinkDenormalizedTransmissionPacketV4) {
 
@@ -318,6 +320,8 @@ class DeviceService: Service(){
         }
     }
 
+    //endregion
+
     // using IMU accelerameter data will trigger two bools to determine if ether your wrist is forwards or backwards
     private fun monitorImuState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
         val imuStateDisposable =
@@ -368,7 +372,6 @@ class DeviceService: Service(){
                         connectingToSpotify = false
                         //Log.d(TAG, "$GESTURES_TAG $gesture")
                         Application.currentGesture = gesture
-                        //print(gesture)
                         if (gesture == "SHAKE_N_INEH") {
                             Application.wakeword = !Application.wakeword
                             if (Application.wakeword) {
@@ -388,7 +391,7 @@ class DeviceService: Service(){
                                     HAPTIC_BURST,
                                     DURATION_MS_DEFAULT,
                                     INTENSITY_UnlockLock,
-                                    NUMBER_DEFAULT_Lock
+                                    NUMBER_DEFAULT_Unlock
                                 )
                             }
                         }
@@ -400,58 +403,50 @@ class DeviceService: Service(){
                             if (gesture == "DEBOUNCE_LDA_TEH" && isUpward && !debounce ||
                                 gesture == "DEBOUNCE_LDA_FHEH" && isUpward && !debounce
                             ) {
-                                // using imu data with thumb can figure out its a thumbs up
                                 isIndexed = false
                                 debounce = true
 
-                                println("Liked Song")
-                                // Adding song to liked songs
-                                Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                    if (it.track.name != null) {
-                                        Application.spotifyAppRemote.userApi.getLibraryState(it.track.uri).setResultCallback {
-                                            if(it.isAdded){
-                                                Application.spotifyAppRemote.userApi.removeFromLibrary(it.uri)
-                                            }
-                                            else{
-                                                Application.spotifyAppRemote.userApi.addToLibrary(it.uri)
+                                // If a swipe wasnt preformed will instead like or unlike the song
+                                GlobalScope.launch {
+                                    delay(550)
+
+                                    if(!swiped){
+                                        println("Liked Song")
+                                        // Adding song to liked songs
+                                        Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
+                                            if (it.track.name != null) {
+                                                Application.spotifyAppRemote.userApi.getLibraryState(it.track.uri).setResultCallback {
+                                                    if(it.isAdded){
+                                                        Application.spotifyAppRemote.userApi.removeFromLibrary(it.uri)
+                                                    }
+                                                    else{
+                                                        Application.spotifyAppRemote.userApi.addToLibrary(it.uri)
+                                                    }
+                                                }
                                             }
                                         }
+
+                                        sendHaptic(
+                                            HAPTIC_BURST,
+                                            DURATION_MS_DEFAULT,
+                                            INTENSITY_BASIC,
+                                            NUMBER_DEFAULT_BASIC
+                                        )
+                                    }
+                                    else{
+                                        swiped = false
                                     }
                                 }
-
-                                sendHaptic(
-                                    HAPTIC_BURST,
-                                    DURATION_MS_DEFAULT,
-                                    INTENSITY_BASIC,
-                                    NUMBER_DEFAULT_BASIC
-                                )
-                            } /*else if (gesture == "DEBOUNCE_LDA_TEH" && isDownward && !debounce ||
-                                gesture == "DEBOUNCE_LDA_FHEH" && isDownward && !debounce
+                            }
+                            else if (gesture == "FHEH_SWIPE_RIGHT" ||
+                                     gesture == "TEH_SWIPE_RIGHT"
                             ) {
-                                // using imu data with thumb can figure out its a thumbs down
-                                isIndexed = false
-                                debounce = true
-                                println("Unliked Song")
-                                // removing song from liked songs
-                                /*
-                                Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                    if (it.track.name != null) {
-                                        Application.spotifyAppRemote.userApi.removeFromLibrary(it.track.uri)
-                                    }
-                                }*/
-
-                                sendHaptic(
-                                    HAPTIC_BURST,
-                                    DURATION_MS_DEFAULT,
-                                    INTENSITY_BASIC,
-                                    NUMBER_DEFAULT_BASIC
-                                )
-                            } */
-                            else if (gesture == "INEH_SWIPE_RIGHT") {
                                 // skip to next song
+                                println("Play Next Song")
+
                                 isIndexed = false
                                 debounce = true
-                                println("Play Next Song")
+                                swiped = true
                                 Application.spotifyAppRemote.playerApi.skipNext()
                                 sendHaptic(
                                     HAPTIC_BURST,
@@ -459,11 +454,15 @@ class DeviceService: Service(){
                                     INTENSITY_BASIC,
                                     NUMBER_DEFAULT_BASIC
                                 )
-                            } else if (gesture == "INEH_SWIPE_LEFT") {
+                            } else if (gesture == "FHEH_SWIPE_LEFT" ||
+                                        gesture == "TEH_SWIPE_LEFT"
+                            ) {
                                 // skip to previous song
+                                println("Play Prev Song")
+
                                 isIndexed = false
                                 debounce = true
-                                println("Play Prev Song")
+                                swiped = true
                                 Application.spotifyAppRemote.playerApi.skipPrevious()
                                 sendHaptic(
                                     HAPTIC_BURST,
@@ -473,9 +472,10 @@ class DeviceService: Service(){
                                 )
                             } else if (gesture == "INEH_SWIPE_UP") {
                                 // Swipe up will increase volume set amount
+                                println("Increase Volume")
+
                                 debounce = true
                                 swipedUp = true // trigger hold functionality
-                                println("Increase Volume")
                                 audioManager.adjustVolume(
                                     AudioManager.ADJUST_RAISE,
                                     AudioManager.FLAG_PLAY_SOUND
@@ -507,7 +507,7 @@ class DeviceService: Service(){
                             ) {
                                 // User closed hand without preforming any other gesture
                                 isIndexed = false
-                                //println("CLICKED")
+
                                 if(!armAtNinede){
                                     // Check if spotify is currently playing or paused and trigger opposite
                                     Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
@@ -530,14 +530,12 @@ class DeviceService: Service(){
                                 else{
                                     println("toggle shuffle")
                                     Application.spotifyAppRemote.playerApi.toggleShuffle()
-                                    Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                        it.playbackOptions.isShuffling
-                                    }
 
-                                    Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                        Handler(Looper.getMainLooper()).postDelayed({
+                                    GlobalScope.launch {
+                                        delay(5000)
+                                        Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
                                             println(it.playbackOptions.isShuffling)
-                                        }, 5000)
+                                        }
                                     }
 
                                     sendHaptic(
