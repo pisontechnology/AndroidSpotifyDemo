@@ -125,10 +125,6 @@ class MainActivity : ComponentActivity() {
                 OnboardingScreen(onContinueClicked = {})
             }
         }
-
-        spotifyAppRemote.playerApi.playerState.setResultCallback {
-
-        }
     }
 
     override fun onStop() {

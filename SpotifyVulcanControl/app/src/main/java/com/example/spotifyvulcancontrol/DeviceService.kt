@@ -379,16 +379,18 @@ class DeviceService: Service(){
     }
 
     private fun lockWakeword(){
+        if(Application.wakeword == true){
+            sendHaptic(
+                HAPTIC_BURST,
+                DURATION_MS_DEFAULT,
+                INTENSITY_UnlockLock,
+                NUMBER_DEFAULT_Unlock
+            )
+        }
+
         Application.wakeword = false
         debounce = false
         isIndexed = false
-
-        sendHaptic(
-            HAPTIC_BURST,
-            DURATION_MS_DEFAULT,
-            INTENSITY_UnlockLock,
-            NUMBER_DEFAULT_Unlock
-        )
     }
 
     private fun monitorGestures(pisonRemoteDevice: PisonRemoteClassifiedDevice) {
@@ -623,6 +625,7 @@ class DeviceService: Service(){
                         }
                     }
                     else{
+                        println("oh no time")
                         if(!connectingToSpotify)
                         {
                             println("Reconnecting to spotify")
