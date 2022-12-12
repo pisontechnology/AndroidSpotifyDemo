@@ -12,7 +12,6 @@ import io.ktor.http.cio.websocket.*
 
 class Application : Application() {
     companion object {
-        //lateinit var deviceManager: DeviceManager<PisonServerDeviceFrame<FrameType>>
         lateinit var sdk: PisonRemoteServer
         lateinit var spotifyAppRemote: SpotifyAppRemote
         var wakeword = false
@@ -24,6 +23,8 @@ class Application : Application() {
         }
         var rawAdcAverage = 0f
         var mMainActivity: MainActivity = MainActivity()
+        var DELAY_AUTOLOCK: Long = 10000
+        var shouldAutolock = true
     }
 
     override fun onCreate() {

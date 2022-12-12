@@ -12,6 +12,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons.Filled
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
+//import com.adamratzman.spotify.spotifyAppApi
 import com.example.spotifyvulcancontrol.Application.Companion.spotifyAppRemote
 import com.example.spotifyvulcancontrol.ui.theme.SpotifyVulcanControlTheme
 import com.example.spotifyvulcancontrol.view.WaveView
@@ -41,6 +43,10 @@ import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
 import com.spotify.android.appremote.api.SpotifyAppRemote
 import io.ktor.http.*
+//import kaaes.spotify.webapi.android.SpotifyApi
+//import kaaes.spotify.webapi.android.SpotifyService
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.util.*
 
 val defaultEulers: EulerAngles = object : EulerAngles {
@@ -119,6 +125,10 @@ class MainActivity : ComponentActivity() {
                 OnboardingScreen(onContinueClicked = {})
             }
         }
+
+        spotifyAppRemote.playerApi.playerState.setResultCallback {
+
+        }
     }
 
     override fun onStop() {
@@ -150,7 +160,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-//region Compose Functions
+//region Main Compose Function
 
 @Composable
 private fun OnboardingScreen(
@@ -171,19 +181,7 @@ private fun OnboardingScreen(
     val songLiked = remember { mutableStateOf(false)}
     val helpPopUp = remember { mutableStateOf(false)}
     val adjustedStrength = remember{ mutableStateOf(0f)}
-
-    var positionMin: Long = 0
-    var positionSec: Long = 0
-    var maxMin: Long = 0
-    var maxSec: Long = 0
-
-    val extraPadding by animateDpAsState(
-        if (expanded.value) 50.dp else 30.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
+    val quitPopUp = remember{ mutableStateOf(false)}
 
     print(helpPopUp.value)
 
@@ -193,11 +191,10 @@ private fun OnboardingScreen(
     Handler(Looper.getMainLooper()).post(object: Runnable{
         override fun run() {
             if(spotifyConnected){
-                //println("Hack Update Called")
+                //println("Hacky Update Called")
                 wakewordVal.value = Application.wakeword
                 gesture.value = Application.currentGesture
                 eulerAngles.value = Application.eulerAngles
-
 
                 adjustedStrength.value = Application.rawAdcAverage
                 waveProcessor.setAmplitude(adjustedStrength.value)
@@ -213,6 +210,7 @@ private fun OnboardingScreen(
         }
     })
 
+    // Getting needed info from spotify when events are called
     if(spotifyConnected){
         spotifyAppRemote.playerApi.subscribeToPlayerState().setEventCallback {
             songName.value = it.track.name
@@ -231,6 +229,7 @@ private fun OnboardingScreen(
         artistName.value = "Pending..."
     }
 
+    // Song Image Display
     Surface {
         Column(
             modifier = Modifier
@@ -255,300 +254,452 @@ private fun OnboardingScreen(
             }
         }
 
+        WakewordDisplay(wakewordVal)
+
+        // ************ Shuffle UI ***********
+        /*
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 120.dp, horizontal = 30.dp),
+                .padding(vertical = 125.dp, horizontal = 30.dp),
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.Start
         ){
             Text("", modifier = Modifier.padding(14.dp))
-            if(wakewordVal.value){
-                Image(painter = painterResource(id = R.drawable.wakeword_awake),
+            if(isShuffling.value){
+                Image(painter = painterResource(id = R.drawable.shuffle_selected),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
             else{
-                Image(painter = painterResource(id = R.drawable.wakeword_asleep),
+                Image(painter = painterResource(id = R.drawable.shuffle_unslected),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
-        }
+        }*/
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 120.dp, horizontal = 30.dp),
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.End
-        ){
-            Text("", modifier = Modifier.padding(14.dp))
-            if(wakewordVal.value){
-                Image(painter = painterResource(id = R.drawable.wakeword_awake),
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-            else{
-                Image(painter = painterResource(id = R.drawable.wakeword_asleep),
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-        }
-
-        Column(modifier = Modifier
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .fillMaxSize(),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.End
-        ) {
-            IconButton(
-                onClick = { helpPopUp.value = !helpPopUp.value }
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.help_icon),
-                    contentDescription = null,
-                    modifier = Modifier.size(23.dp),
-                )
-            }
-        }
+        // Pop Up icon Interface
+        PopupIcons(helpPopUp, quitPopUp)
 
         // Song section Includes
         // Song name, artist name, heart img
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 30.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ){
-            Column(
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text("", modifier = Modifier.padding(vertical = 70.dp))
-                if(songName.value.length >= 22){
-                    Box(modifier = Modifier.size(width = 305.dp, height = 52.dp)){
-                        AutoScrollingLazyRow(list = (1..8).take(1)) {
-                            Text(
-                                "${songName.value}    ", style = MaterialTheme.typography.h6,
-                                modifier = Modifier
-                                    .padding(vertical = 10.dp),
-                                fontSize = 23.sp,
-                            )
-                        }
+        SongAndLikeDisplay(songName, artistName, songLiked)
+
+        SliderDisplay(songPosition, songMax, positionText, maxText)
+
+        // Play, Pausing, Skip, Pev Interface
+        PlayPauseSkipDisplay(isPlaying)
+        
+        // EMI Interface
+        EMIPanel(expanded, gesture, eulerAngles)
+        
+        // Pop Up Interfaces
+        if(quitPopUp.value){
+            QuitPopup(quitPopUp)
+        }
+        
+        if(helpPopUp.value){
+            HelpPopup()
+        }
+    }
+}
+
+//endregion
+
+//region Wakeword Display
+
+@Composable
+private fun WakewordDisplay(
+    wakewordVal: MutableState<Boolean>
+){
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 120.dp, horizontal = 30.dp),
+        verticalArrangement = Arrangement.Bottom,
+        horizontalAlignment = Alignment.Start
+    ){
+        Text("", modifier = Modifier.padding(14.dp))
+        if(wakewordVal.value){
+            Image(painter = painterResource(id = R.drawable.wakeword_awake),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+        else{
+            Image(painter = painterResource(id = R.drawable.wakeword_asleep),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+    }
+}
+
+//endregion
+
+//region Song/Like Display
+
+@Composable
+private fun SongAndLikeDisplay(
+    songName: MutableState<String>,
+    artistName: MutableState<String>,
+    songLiked: MutableState<Boolean>
+){
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 30.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ){
+        Column(
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text("", modifier = Modifier.padding(vertical = 70.dp))
+            if(songName.value.length >= 22){
+                Box(modifier = Modifier.size(width = 305.dp, height = 52.dp)){
+                    AutoScrollingLazyRow(list = (1..8).take(1)) {
+                        Text(
+                            "${songName.value}    ", style = MaterialTheme.typography.h6,
+                            modifier = Modifier
+                                .padding(vertical = 10.dp),
+                            fontSize = 23.sp,
+                        )
                     }
                 }
-                else{
-                    Text(
-                        "${songName.value}", style = MaterialTheme.typography.h6,
-                        modifier = Modifier
-                            .padding(vertical = 10.dp),
-                        fontSize = 23.sp,
-                    )
-                }
-                Text("${artistName.value}", style = MaterialTheme.typography.caption, fontSize = 15.sp)
             }
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.End) {
-                Text("", modifier = Modifier.padding(vertical = 71.dp))
-                if(songLiked.value){
-                    Image(painter = painterResource(id = R.drawable.heart_full),
-                        contentDescription = null,
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-                else{
-                    Image(painter = painterResource(id = R.drawable.heart_empty),
-                        contentDescription = null,
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 30.dp, vertical = 210.dp),
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ){
-            Slider(
-                value = songPosition.value,
-                onValueChange = { songPosition.value = it},
-                valueRange = 0f..songMax.value,
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colors.onSurface,
-                    activeTrackColor = MaterialTheme.colors.onSurface
-                )
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 30.dp, vertical = 203.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.Start
-        ){
-            positionMin = songPosition.value.toLong() / 1000 / 60
-            positionSec = songPosition.value.toLong() / 1000 % 60
-            positionText.value = String.format("%01d:%02d", positionMin, positionSec)
-            Text(
-                "${positionText.value}", // put current time here
-                style = MaterialTheme.typography.caption,
-                fontSize = 10.sp
-            )
-
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 30.dp, vertical = 203.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.End
-        ){
-            maxMin = songMax.value.toLong() / 1000 / 60
-            maxSec = songMax.value.toLong() / 1000 % 60
-            maxText.value = String.format("%01d:%02d", maxMin, maxSec)
-            Text("${maxText.value}", // put full song duration here
-                style = MaterialTheme.typography.caption,
-                fontSize = 10.sp
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.Center
-        ){
-            Image(painter = painterResource(id = R.drawable.ic_skip_previous),
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(vertical = 110.dp, horizontal = 15.dp)
-                    .size(60.dp)
-            )
-            if(isPlaying.value){
-                Image(painter = painterResource(id = R.drawable.play_button),
-                    contentDescription = null,
+            else{
+                Text(
+                    "${songName.value}", style = MaterialTheme.typography.h6,
                     modifier = Modifier
-                        .padding(vertical = 110.dp, horizontal = 15.dp)
-                        .size(60.dp)
+                        .padding(vertical = 10.dp),
+                    fontSize = 23.sp,
+                )
+            }
+            Text("${artistName.value}", style = MaterialTheme.typography.caption, fontSize = 15.sp)
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.End) {
+            Text("", modifier = Modifier.padding(vertical = 71.dp))
+            if(songLiked.value){
+                Image(painter = painterResource(id = R.drawable.heart_full),
+                    contentDescription = null,
+                    modifier = Modifier.size(23.dp)
                 )
             }
             else{
-                Image(painter = painterResource(id = R.drawable.pauce_button),
+                Image(painter = painterResource(id = R.drawable.heart_empty),
                     contentDescription = null,
-                    modifier = Modifier
-                        .padding(vertical = 110.dp, horizontal = 15.dp)
-                        .size(60.dp)
+                    modifier = Modifier.size(23.dp)
                 )
             }
-            Image(painter = painterResource(id = R.drawable.ic_skip),
+
+        }
+    }
+}
+
+//endregion
+
+//region Slider Display
+
+@Composable
+private fun SliderDisplay(
+    songPosition: MutableState<Float>,
+    songMax: MutableState<Float>,
+    positionText: MutableState<String>,
+    maxText: MutableState<String>
+){
+    var positionMin: Long = 0
+    var positionSec: Long = 0
+    var maxMin: Long = 0
+    var maxSec: Long = 0
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 30.dp, vertical = 210.dp),
+        verticalArrangement = Arrangement.Bottom,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        Slider(
+            value = songPosition.value,
+            onValueChange = { songPosition.value = it},
+            valueRange = 0f..songMax.value,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colors.onSurface,
+                activeTrackColor = MaterialTheme.colors.onSurface
+            )
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 30.dp, vertical = 203.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.Start
+    ){
+        positionMin = songPosition.value.toLong() / 1000 / 60
+        positionSec = songPosition.value.toLong() / 1000 % 60
+        positionText.value = String.format("%01d:%02d", positionMin, positionSec)
+        Text(
+            "${positionText.value}", // put current time here
+            style = MaterialTheme.typography.caption,
+            fontSize = 10.sp
+        )
+
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 30.dp, vertical = 203.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.End
+    ){
+        maxMin = songMax.value.toLong() / 1000 / 60
+        maxSec = songMax.value.toLong() / 1000 % 60
+        maxText.value = String.format("%01d:%02d", maxMin, maxSec)
+        Text("${maxText.value}", // put full song duration here
+            style = MaterialTheme.typography.caption,
+            fontSize = 10.sp
+        )
+    }
+}
+
+//endregion
+
+//region Play Pause Display
+
+@Composable
+private fun PlayPauseSkipDisplay(
+    isPlaying: MutableState<Boolean>
+){
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.Center
+    ){
+        Image(painter = painterResource(id = R.drawable.ic_skip_previous),
+            contentDescription = null,
+            modifier = Modifier
+                .padding(vertical = 110.dp, horizontal = 15.dp)
+                .size(60.dp)
+        )
+        if(isPlaying.value){
+            Image(painter = painterResource(id = R.drawable.play_button),
                 contentDescription = null,
                 modifier = Modifier
                     .padding(vertical = 110.dp, horizontal = 15.dp)
                     .size(60.dp)
             )
         }
+        else{
+            Image(painter = painterResource(id = R.drawable.pauce_button),
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(vertical = 110.dp, horizontal = 15.dp)
+                    .size(60.dp)
+            )
+        }
+        Image(painter = painterResource(id = R.drawable.ic_skip),
+            contentDescription = null,
+            modifier = Modifier
+                .padding(vertical = 110.dp, horizontal = 15.dp)
+                .size(60.dp)
+        )
+    }
+}
 
-        if(helpPopUp.value){
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Card(
-                    modifier = Modifier
-                        .size(width = 300.dp, height = 500.dp)
-                        .fillMaxSize(),
-                    backgroundColor = MaterialTheme.colors.primary,
-                ){
-                    Text("HOW TO USE SCREEN COMING SOON",
-                        modifier = Modifier.padding(20.dp, vertical = 220.dp),
-                        fontSize = 26.sp
-                    )
-                    /*
-                    Text(text = "How to Use:",
-                        style = MaterialTheme.typography.h6,
-                        fontSize = 23.sp,
-                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
-                    )
-                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 54.dp)){
-                        // Index image here
-                        Text("Shake Index - activate gestures")
-                    }
-                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 100.dp)){
-                        // Index image here
-                        Text("Index - Play/Pause Music")
-                    }
-                    Row(modifier = Modifier.padding(horizontal = 13.dp, vertical = 146.dp)){
-                        // Index image here
-                        Text("Index Swipe Left Right - Prev/Next Song")
-                    }*/
+//endregion
+
+//region Pop-ups Display
+
+@Composable
+private fun PopupIcons(
+    helpPopUp: MutableState<Boolean>,
+    quitPopUp: MutableState<Boolean>
+){
+    Column(modifier = Modifier
+        .padding(horizontal = 20.dp, vertical = 10.dp)
+        .fillMaxSize(),
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.End
+    ) {
+        IconButton(
+            onClick = { helpPopUp.value = !helpPopUp.value }
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.help_icon),
+                contentDescription = null,
+                modifier = Modifier.size(23.dp),
+            )
+        }
+    }
+
+    Column(modifier = Modifier
+        .padding(horizontal = 20.dp, vertical = 10.dp)
+        .fillMaxSize(),
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.Start
+    ) {
+        IconButton(
+            onClick = {
+                //QuitPopup() System.exit(0)
+                quitPopUp.value = !quitPopUp.value
+            }
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.cancel_icon),
+                contentDescription = null,
+                modifier = Modifier.size(23.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelpPopup(){
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(modifier = Modifier
+            .background(color = MaterialTheme.colors.primary)
+            .size(width = 300.dp, height = 330.dp)
+        ){
+            Column() {
+                Text(text = "How to Use: *TEMP*",
+                    style = MaterialTheme.typography.h6,
+                    fontSize = 23.sp,
+                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
+                )
+                Text("Shake Index - activate/deactivate gestures", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                Text("Index - Play/Pause Music", modifier = Modifier.padding(horizontal = 13.dp, vertical = 5.dp))
+                Text("Index Swipe Left/Right - Prev/Next Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                Text("Index Swipe Up/Down - Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                Text("Index Swipe Up/Down Hold - Continuous Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                Text("Thumb Up - Like/UnLike Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuitPopup(quitPopUp: MutableState<Boolean>){
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Card(backgroundColor = MaterialTheme.colors.primary,
+            modifier = Modifier.size(height = 160.dp, width = 330.dp)
+        ){
+            Column(verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(vertical = 20.dp, horizontal = 20.dp)) {
+                Text("Shut down Vulcan Spotify?", style = MaterialTheme.typography.h6,
+                    fontSize = 18.sp,
+                color = Color.White)
+            }
+            Row(verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.padding(vertical = 23.dp, horizontal = 15.dp)){
+                Text("", modifier = Modifier.padding(horizontal = 11.5.dp))
+                Button(
+                    onClick = { System.exit(0) },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    modifier = Modifier.size(width = 100.dp, height = 40.dp)
+                ) {
+                    Text("Yes", color = Color.Black)
+                }
+                Text("", modifier = Modifier.padding(horizontal = 25.dp))
+                Button(
+                    onClick = { quitPopUp.value = false },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    modifier = Modifier.size(width = 100.dp, height = 40.dp)
+                ) {
+                    Text("No", color = Color.Black)
                 }
             }
         }
+    }
+}
 
-        // EMI Inferences stuff here *****
+//endregion
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.CenterHorizontally
+//region EMI Display
+
+@Composable
+private fun EMIPanel(
+    expanded: MutableState<Boolean>,
+    gesture: MutableState<String>,
+    eulerAngles: MutableState<EulerAngles>
+){
+
+    val extraPadding by animateDpAsState(
+        if (expanded.value) 50.dp else 30.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Bottom,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Card(
+            backgroundColor = MaterialTheme.colors.primary,
+            modifier = Modifier.padding(horizontal = 8.dp)
         ) {
-            Card(
-                backgroundColor = MaterialTheme.colors.primary,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            ) {
-                Row() {
-                    Column(
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.Start
+            Row() {
+                Column(
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        "Inferences and EMI",
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(extraPadding)
+                ) {
+                }
+                Column(
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.End
+                ) {
+                    IconButton(
+                        onClick = { expanded.value = !expanded.value }
                     ) {
-                        Text(
-                            "Inferences and EMI",
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            fontWeight = FontWeight.Bold
+                        Icon(
+                            imageVector = if (expanded.value) Filled.ExpandMore else Filled.ExpandLess,
+                            contentDescription = if (expanded.value) {
+                                stringResource(R.string.show_more)
+                            } else {
+                                stringResource(R.string.show_less)
+                            }
                         )
                     }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(extraPadding), //bottom = extraPadding)
-                    ) {
-                    }
-                    Column(
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        IconButton(
-                            onClick = { expanded.value = !expanded.value }
-                        ) {
-                            Icon(
-                                imageVector = if (expanded.value) Filled.ExpandMore else Filled.ExpandLess,
-                                contentDescription = if (expanded.value) {
-                                    stringResource(R.string.show_more)
-                                } else {
-                                    stringResource(R.string.show_less)
-                                }
-                            )
-                        }
-                    }
                 }
-                if(expanded.value){
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        RealTimePortrait(gesture, eulerAngles)
-                    }
+            }
+            if(expanded.value){
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    RealTimePortrait(gesture, eulerAngles)
                 }
             }
         }
@@ -559,15 +710,6 @@ private fun OnboardingScreen(
 private fun RealTimePortrait(
     gesture: MutableState<String>,
     eulerStream: MutableState<EulerAngles>
-    //adjustedStrength: MutableState<Float>
-    //waveProcessor: WaveProcessor
-    /*eulerStream: Observable<EulerAngles>,
-    waveProcessor: WaveProcessor,
-    ldaOutput: Observable<LdaVerdict>,
-    eventOutput: Observable<HighlightedInference>,
-    swipeOutput: Observable<HighlightedInference>,
-    sqiOutput: Observable<SqiErrorVerdict>,
-    rssiOutput: Observable<RssiDisplay>*/
 ) {
     Column(
         //modifier = Modifier
@@ -576,12 +718,12 @@ private fun RealTimePortrait(
         Box(modifier = Modifier
             .weight(1f)
             .padding(bottom = 10.dp)) {
-            SignalDisplay(gesture)//, adjustedStrength)//waveProcessor = waveProcessor, ldaOutput, eventOutput, swipeOutput, rssiOutput)
+            SignalDisplay(gesture)
         }
         Box(modifier = Modifier
             .weight(0.8f)
             .padding(bottom = 20.dp)) {
-            EulersDisplay(eulerStream = eulerStream)//, sqiOutput = sqiOutput)
+            EulersDisplay(eulerStream = eulerStream)
         }
     }
 }
@@ -589,7 +731,6 @@ private fun RealTimePortrait(
 @Composable
 private fun EulersDisplay(
     eulerStream: MutableState<EulerAngles>
-    //sqiOutput: Observable<SqiErrorVerdict>
 ){
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -622,13 +763,12 @@ private fun EulersDisplay(
         Row(
             Modifier
                 .weight(1f)
-                .fillMaxWidth(), //horizontalArrangement = Arrangement.SpaceEvenly
+                .fillMaxWidth()
         ) {
             Column(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth())
-                    //.padding(start = 40.dp)
                     {
                 Dial(rotation = -(eulerStream.value.roll - 90f), label = "Roll")
                 Row(modifier = Modifier.padding(horizontal = 60.dp)) {
@@ -647,13 +787,9 @@ private fun SignalDisplay(
     gesture:  MutableState<String>
     //adjustedStrength: MutableState<Float>
     //waveProcessor: WaveProcessor,
-    /*ldaOutput: Observable<LdaVerdict>,
-    eventOutput: Observable<HighlightedInference>,
-    swipeOutput: Observable<HighlightedInference>,
-    rssiOutput: Observable<RssiDisplay>*/
 ) {
     Column {
-        VerdictHeader(gesture)//ldaOutput = ldaOutput, eventOutput = eventOutput, swipeOutput = swipeOutput, rssiOutput = rssiOutput)
+        VerdictHeader(gesture)
         BoxWithConstraints{
             //println("reconstraint")
             // Is an import for com.pison.neohub.view.WaveView
@@ -702,6 +838,10 @@ private fun VerdictHeader(
         )
     }
 }
+
+//endregion
+
+//region gestureDisplay
 
 fun gestureInputs(gesture: String): Pair<String, Boolean>{
     when (gesture){
@@ -765,6 +905,8 @@ fun swipeInputs(gesture: String): Pair<String, Boolean> {
     }
 }
 
+//endregion
+
 @Preview
 @Preview(device = Devices.AUTOMOTIVE_1024p, widthDp = 740, heightDp = 360)
 @Composable
@@ -773,5 +915,3 @@ fun OnboardingPreview() {
         OnboardingScreen(onContinueClicked = {})
     }
 }
-
-//endregion

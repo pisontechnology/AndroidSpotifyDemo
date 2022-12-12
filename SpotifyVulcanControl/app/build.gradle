@@ -96,5 +96,5 @@ dependencies {
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
     debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_version"
-    //api "com.pison.core:server-jvm:1.3.0-f7bc10475d"
+    implementation "com.google.code.gson:gson:2.8.5"
 }
