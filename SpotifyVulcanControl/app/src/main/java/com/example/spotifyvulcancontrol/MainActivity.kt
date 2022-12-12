@@ -160,7 +160,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-//region Compose Functions
+//region Main Compose Function
 
 @Composable
 private fun OnboardingScreen(
@@ -305,6 +305,8 @@ private fun OnboardingScreen(
         }
     }
 }
+
+//endregion
 
 //region Wakeword Display
 
@@ -913,5 +915,3 @@ fun OnboardingPreview() {
         OnboardingScreen(onContinueClicked = {})
     }
 }
-
-//endregion

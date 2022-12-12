@@ -23,6 +23,8 @@ class Application : Application() {
         }
         var rawAdcAverage = 0f
         var mMainActivity: MainActivity = MainActivity()
+        var DELAY_AUTOLOCK: Long = 10000
+        var shouldAutolock = true
     }
 
     override fun onCreate() {

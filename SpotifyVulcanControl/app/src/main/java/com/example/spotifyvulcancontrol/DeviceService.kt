@@ -100,6 +100,9 @@ class DeviceService: Service(){
     var swipedDown = false
     var connectingToSpotify = false
     private var swiped = false
+    private var didAGesture = false
+
+    var autoLock = GlobalScope.launch { }
 
     // EMI Screen variables
     private var lastStoredFrame: MutableList<Double> = MutableList<Double>(0) {0.0}
@@ -206,6 +209,7 @@ class DeviceService: Service(){
 
     override fun onBind(p0: Intent?): IBinder? {
         return null
+
     }
 
     private fun monitorDeviceState(pisonRemoteDevice: PisonRemoteClassifiedDevice){
@@ -364,6 +368,29 @@ class DeviceService: Service(){
         masterDisposable.add(imuStateDisposable)
     }
 
+    suspend fun autoLockDevice(){
+        //println("Auto-lock Called")
+        delay(Application.DELAY_AUTOLOCK)
+        //println("Auto-lock")
+
+        if(!didAGesture){
+            lockWakeword()
+        }
+    }
+
+    private fun lockWakeword(){
+        Application.wakeword = false
+        debounce = false
+        isIndexed = false
+
+        sendHaptic(
+            HAPTIC_BURST,
+            DURATION_MS_DEFAULT,
+            INTENSITY_UnlockLock,
+            NUMBER_DEFAULT_Unlock
+        )
+    }
+
     private fun monitorGestures(pisonRemoteDevice: PisonRemoteClassifiedDevice) {
         val gestureDisposable =
             pisonRemoteDevice.monitorFrameTags().flatMapIterable { it }.observeOn(mainScheduler).subscribe(
@@ -397,12 +424,14 @@ class DeviceService: Service(){
                         }
                         if (Application.wakeword) {
                             if (gesture == "DEBOUNCE_LDA_INEH") {
+                                didAGesture = true
                                 isIndexed = true // trigger user is Indexing at the moment
                             }
 
                             if (gesture == "DEBOUNCE_LDA_TEH" && isUpward && !debounce ||
                                 gesture == "DEBOUNCE_LDA_FHEH" && isUpward && !debounce
                             ) {
+                                didAGesture = true
                                 isIndexed = false
                                 debounce = true
 
@@ -444,6 +473,7 @@ class DeviceService: Service(){
                                 // skip to next song
                                 println("Play Next Song")
 
+                                didAGesture = true
                                 isIndexed = false
                                 debounce = true
                                 swiped = true
@@ -460,6 +490,7 @@ class DeviceService: Service(){
                                 // skip to previous song
                                 println("Play Prev Song")
 
+                                didAGesture = true
                                 isIndexed = false
                                 debounce = true
                                 swiped = true
@@ -474,6 +505,7 @@ class DeviceService: Service(){
                                 // Swipe up will increase volume set amount
                                 println("Increase Volume")
 
+                                didAGesture = true
                                 debounce = true
                                 swipedUp = true // trigger hold functionality
                                 audioManager.adjustVolume(
@@ -488,6 +520,7 @@ class DeviceService: Service(){
                                 )
                             } else if (gesture == "INEH_SWIPE_DOWN") {
                                 // Swipe down will decrease volume set amount
+                                didAGesture = true
                                 debounce = true
                                 swipedDown = true // trigger hold functionality
                                 println("Decrease Volume")
@@ -506,6 +539,7 @@ class DeviceService: Service(){
                                 !debounce && !swipedDown && !swipedUp
                             ) {
                                 // User closed hand without preforming any other gesture
+                                didAGesture = true
                                 isIndexed = false
 
                                 if(!armAtNinede){
@@ -548,6 +582,7 @@ class DeviceService: Service(){
                             } else if (gesture == "DEBOUNCE_LDA_INEH" && swipedUp ||
                                 gesture == "DEBOUNCE_LDA_INEH" && swipedDown
                             ) {
+                                didAGesture = true
                                 mHandler.post(object : Runnable {
                                     override fun run() {
                                         mHandler.postDelayed({
@@ -571,10 +606,19 @@ class DeviceService: Service(){
                             }
                             else if (gesture == "DEBOUNCE_LDA_INACTIVE" && debounce) {
                                 // when hand is at rest reset everything
+                                didAGesture = false
                                 debounce = false
                                 isIndexed = false
                                 swipedDown = false
                                 swipedUp = false
+
+                                if(autoLock.isActive && Application.shouldAutolock){
+                                    autoLock.cancel()
+                                    autoLock = GlobalScope.launch { autoLockDevice() }
+                                }
+                                else if (Application.shouldAutolock) {
+                                    autoLock = GlobalScope.launch { autoLockDevice() }
+                                }
                             }
                         }
                     }
