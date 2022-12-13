@@ -563,7 +563,8 @@ class DeviceService: Service(){
                                         )
                                     }
                                 }
-                                else{
+                                /*else{
+                                    didAGesture = true
                                     println("toggle shuffle")
                                     Application.spotifyAppRemote.playerApi.toggleShuffle()
 
@@ -580,7 +581,7 @@ class DeviceService: Service(){
                                         INTENSITY_BASIC,
                                         NUMBER_DEFAULT_BASIC
                                     )
-                                }
+                                }*/
                             } else if (gesture == "DEBOUNCE_LDA_INEH" && swipedUp ||
                                 gesture == "DEBOUNCE_LDA_INEH" && swipedDown
                             ) {
@@ -608,6 +609,7 @@ class DeviceService: Service(){
                             }
                             else if (gesture == "DEBOUNCE_LDA_INACTIVE" && debounce) {
                                 // when hand is at rest reset everything
+                                println("Inactive time")
                                 didAGesture = false
                                 debounce = false
                                 isIndexed = false
@@ -625,7 +627,6 @@ class DeviceService: Service(){
                         }
                     }
                     else{
-                        println("oh no time")
                         if(!connectingToSpotify)
                         {
                             println("Reconnecting to spotify")

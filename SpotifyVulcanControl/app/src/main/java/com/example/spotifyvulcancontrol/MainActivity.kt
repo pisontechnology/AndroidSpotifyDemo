@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -178,8 +179,16 @@ private fun OnboardingScreen(
     val helpPopUp = remember { mutableStateOf(false)}
     val adjustedStrength = remember{ mutableStateOf(0f)}
     val quitPopUp = remember{ mutableStateOf(false)}
+    val autolockDisplayBool = remember { mutableStateOf(false) }
+    val volMultiTxt = remember { mutableStateOf("")}
+    val volThreshTxt = remember { mutableStateOf("")}
+    val swipeThreshTxt = remember { mutableStateOf("")}
 
-    print(helpPopUp.value)
+
+
+    val numTxt = remember{ mutableStateOf("0")}
+
+    autolockDisplayBool.value = Application.shouldAutolock
 
     // FIX LATER
     // Hacky solution: called way to often (if experiencing lag this is probably why)
@@ -297,12 +306,10 @@ private fun OnboardingScreen(
         }
         
         if(helpPopUp.value){
-            HelpPopup()
+            HelpPopup(volMultiTxt, volThreshTxt, swipeThreshTxt, autolockDisplayBool)
         }
     }
 }
-
-//endregion
 
 //region Wakeword Display
 
@@ -556,33 +563,202 @@ private fun PopupIcons(
     }
 }
 
+//region Setting Display
+
 @Composable
-private fun HelpPopup(){
+private fun HelpPopup(
+    volMultiTxt: MutableState<String>,
+    volThreshTxt: MutableState<String>,
+    swipeThreshTxt: MutableState<String>,
+    autolockDisplayBool: MutableState<Boolean>
+){
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(modifier = Modifier
-            .background(color = MaterialTheme.colors.primary)
-            .size(width = 300.dp, height = 330.dp)
+        Card(modifier = Modifier
+            .size(width = 345.dp, height = 360.dp),
+            backgroundColor = MaterialTheme.colors.primary
         ){
-            Column() {
-                Text(text = "How to Use: *TEMP*",
-                    style = MaterialTheme.typography.h6,
-                    fontSize = 23.sp,
-                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
+
+            Column(modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(30.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.h6,
+                        fontSize = 33.sp,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+                Text("Auto-lock", modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp), fontSize = 20.sp)
+                Text("Volume Multiplier", modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp), fontSize = 20.sp)
+                Text("Volume Threshold", modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp), fontSize = 20.sp)
+                Text("Swipe Threshold", modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp), fontSize = 20.sp)
+            }
+            Column(modifier = Modifier
+                .fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(text = "", fontSize = 33.sp, modifier = Modifier.padding(vertical = 8.dp))
+                Switch(
+                    checked = autolockDisplayBool.value,
+                    onCheckedChange = {
+                        autolockDisplayBool.value = it
+                        Application.shouldAutolock = autolockDisplayBool.value
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.Black,
+                        uncheckedThumbColor = Color.Black,
+                        checkedTrackColor = Color.White,
+                        uncheckedTrackColor = Color.White),
+                    modifier = Modifier.padding(horizontal = 43.dp),
+                    enabled = true
                 )
-                Text("Shake Index - activate/deactivate gestures", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
-                Text("Index - Play/Pause Music", modifier = Modifier.padding(horizontal = 13.dp, vertical = 5.dp))
-                Text("Index Swipe Left/Right - Prev/Next Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
-                Text("Index Swipe Up/Down - Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
-                Text("Index Swipe Up/Down Hold - Continuous Volume Up/Down", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
-                Text("Thumb Up - Like/UnLike Song", modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp))
+                VolMultiChangerDisplay(volMultiTxt)
+                VolThreshChangerDisplay(volThreshTxt)
+                SwipeThreshChangerDisplay(swipeThreshTxt)
             }
         }
     }
 }
+
+// New kotlin updates made it so you can't pass in var anymore
+// So had to do this loophole method, instead of just using one function for all
+// region Changer Displays
+
+@Composable
+private fun VolMultiChangerDisplay(
+    volMultiTxt: MutableState<String>
+){
+    Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+        Column() {
+            // SUBTRACK ONE FROM DESIRED NUMBER
+            IconButton(onClick = { /* TODO: subtract volume multiplier variable here  */ }) {
+                Image(
+                    painter = painterResource(id = R.drawable.subtrack_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Card(backgroundColor = Color.White,
+                modifier = Modifier
+                    .size(width = 30.dp, height = 30.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(volMultiTxt.value, fontSize = 20.sp)
+                }
+            }
+        }
+        Column() {
+            // INCREASE ONE FROM DESIRED NUMBER
+            IconButton(onClick = {  /* TODO: add volume multiplier variable here */  }) {
+                Image(
+                    painter = painterResource(id = R.drawable.add_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VolThreshChangerDisplay(
+    volThreshTxt: MutableState<String>
+){
+    Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+        Column() {
+            // SUBTRACK ONE FROM DESIRED NUMBER
+            IconButton(onClick = { /* TODO: subtract volume threshold variable here  */ }) {
+                Image(
+                    painter = painterResource(id = R.drawable.subtrack_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Card(backgroundColor = Color.White,
+                modifier = Modifier
+                    .size(width = 30.dp, height = 30.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(volThreshTxt.value, fontSize = 20.sp)
+                }
+            }
+        }
+        Column() {
+            // INCREASE ONE FROM DESIRED NUMBER
+            IconButton(onClick = {  /* TODO: add volume threshold variable here */  }) {
+                Image(
+                    painter = painterResource(id = R.drawable.add_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwipeThreshChangerDisplay(
+    swipeThreshTxt: MutableState<String>
+){
+    Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+        Column() {
+            // SUBTRACK ONE FROM DESIRED NUMBER
+            IconButton(onClick = { /* TODO: subtract swipe threshold variable here  */ }) {
+                Image(
+                    painter = painterResource(id = R.drawable.subtrack_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Card(backgroundColor = Color.White,
+                modifier = Modifier
+                    .size(width = 30.dp, height = 30.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(swipeThreshTxt.value, fontSize = 20.sp)
+                }
+            }
+        }
+        Column() {
+            // INCREASE ONE FROM DESIRED NUMBER
+            IconButton(onClick = {  /* TODO: add swipe threshold variable here */  }) {
+                Image(
+                    painter = painterResource(id = R.drawable.add_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+    }
+}
+
+//endregion
+
+//endregion
 
 @Composable
 private fun QuitPopup(quitPopUp: MutableState<Boolean>){
