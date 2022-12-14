@@ -1,0 +1,14 @@
+Can sometimes get it to shuffle using ToggleShuffle() located in the playerApi in spotifyRemoteApp. Then sometimes it seems to not trigger correctly. 
+It may also get stuck in a state where it calls itself twice. Causing the shuffle to quickly shift between on and off. 
+
+The other problem is that the boolean isShuffling that exist in playerApi.playerstate.setResultCallback { it.playerOptions.isShuffling }
+Will always result in returning false regardless of the current state of shuffle in the spotify app
+
+I have made a fresh project and incorporated just the spotify android api and the same bug persisted there as well.
+
+A theory I have is that the booleans only change for specific playlist, and as I have not specified a playlist it will always return false. 
+So I tried using a spotify web-api to get access to the current playlist.
+
+Tried different Spotify web-api wrappers, to get access to current playlist:
+1. https://github.com/adamint/spotify-web-api-kotlin
+2. https://github.com/kaaes/spotify-web-api-android

@@ -568,13 +568,6 @@ class DeviceService: Service(){
                                     println("toggle shuffle")
                                     Application.spotifyAppRemote.playerApi.toggleShuffle()
 
-                                    GlobalScope.launch {
-                                        delay(5000)
-                                        Application.spotifyAppRemote.playerApi.playerState.setResultCallback {
-                                            println(it.playbackOptions.isShuffling)
-                                        }
-                                    }
-
                                     sendHaptic(
                                         HAPTIC_BURST,
                                         DURATION_MS_DEFAULT,

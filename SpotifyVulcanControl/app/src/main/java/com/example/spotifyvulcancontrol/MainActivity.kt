@@ -133,6 +133,8 @@ class MainActivity : ComponentActivity() {
         unbindService(connection)
     }
 
+
+    // Background area
     @OptIn(ExperimentalStdlibApi::class)
     private fun startService(){
         val startIntent = DeviceService.getStartIntent(this)
@@ -183,10 +185,6 @@ private fun OnboardingScreen(
     val volMultiTxt = remember { mutableStateOf("")}
     val volThreshTxt = remember { mutableStateOf("")}
     val swipeThreshTxt = remember { mutableStateOf("")}
-
-
-
-    val numTxt = remember{ mutableStateOf("0")}
 
     autolockDisplayBool.value = Application.shouldAutolock
 
@@ -781,7 +779,7 @@ private fun QuitPopup(quitPopUp: MutableState<Boolean>){
                 modifier = Modifier.padding(vertical = 23.dp, horizontal = 15.dp)){
                 Text("", modifier = Modifier.padding(horizontal = 11.5.dp))
                 Button(
-                    onClick = { System.exit(0) },
+                    onClick = { System.exit(0) }, // Shutting down service
                     colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
                     modifier = Modifier.size(width = 100.dp, height = 40.dp)
                 ) {
