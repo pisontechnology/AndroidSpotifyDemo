@@ -185,6 +185,7 @@ private fun OnboardingScreen(
     val volMultiTxt = remember { mutableStateOf("")}
     val volThreshTxt = remember { mutableStateOf("")}
     val swipeThreshTxt = remember { mutableStateOf("")}
+    val isShuffling = remember { mutableStateOf(false)}
 
     autolockDisplayBool.value = Application.shouldAutolock
 
@@ -260,7 +261,7 @@ private fun OnboardingScreen(
         WakewordDisplay(wakewordVal)
 
         // ************ Shuffle UI ***********
-        /*
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -281,7 +282,7 @@ private fun OnboardingScreen(
                     modifier = Modifier.size(30.dp)
                 )
             }
-        }*/
+        }
 
         // Pop Up icon Interface
         PopupIcons(helpPopUp, quitPopUp)
@@ -320,7 +321,7 @@ private fun WakewordDisplay(
             .fillMaxSize()
             .padding(vertical = 120.dp, horizontal = 30.dp),
         verticalArrangement = Arrangement.Bottom,
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = Alignment.End
     ){
         Text("", modifier = Modifier.padding(14.dp))
         if(wakewordVal.value){
